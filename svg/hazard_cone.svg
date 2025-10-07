@@ -1,0 +1,12 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Traffic cone -->
+  <polygon points="256,200 230,300 282,300" fill="#ff6600"/>
+  <!-- Orange and white stripes -->
+  <polygon points="256,200 236,240 276,240" fill="#fff"/>
+  <polygon points="240,260 272,260 268,280 244,280" fill="#fff"/>
+  <!-- Base -->
+  <rect x="220" y="300" width="72" height="8" fill="#333"/>
+  <ellipse cx="256" cy="304" rx="36" ry="4" fill="#222"/>
+  <!-- Shading -->
+  <polygon points="256,200 230,300 243,300 256,200" fill="#ff8833" opacity="0.5"/>
+</svg>

@@ -1,0 +1,31 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="scooterGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00bcd4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0288d1;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Rear wheel -->
+  <circle cx="230" cy="285" r="18" fill="#222"/>
+  <circle cx="230" cy="285" r="12" fill="#444"/>
+  <!-- Front wheel -->
+  <circle cx="285" cy="285" r="18" fill="#222"/>
+  <circle cx="285" cy="285" r="12" fill="#444"/>
+  <!-- Scooter body -->
+  <rect x="225" y="255" width="65" height="12" fill="url(#scooterGrad)"/>
+  <!-- Seat -->
+  <rect x="225" y="240" width="30" height="15" rx="3" fill="#333"/>
+  <!-- Handlebars -->
+  <line x1="280" y1="255" x2="280" y2="230" stroke="#555" stroke-width="4"/>
+  <line x1="270" y1="230" x2="290" y2="230" stroke="#555" stroke-width="3"/>
+  <!-- Delivery box -->
+  <rect x="215" y="230" width="25" height="20" fill="#ff6600" stroke="#cc5200" stroke-width="2"/>
+  <line x1="220" y1="235" x2="235" y2="245" stroke="#fff" stroke-width="1"/>
+  <line x1="235" y1="235" x2="220" y2="245" stroke="#fff" stroke-width="1"/>
+  <!-- Exhaust (grouped for animation) -->
+  <g id="exhaust">
+    <circle cx="225" cy="270" r="3" fill="#666" opacity="0.6"/>
+    <circle cx="220" cy="272" r="2" fill="#888" opacity="0.4"/>
+    <circle cx="218" cy="268" r="2" fill="#aaa" opacity="0.3"/>
+  </g>
+</svg>

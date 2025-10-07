@@ -1,0 +1,19 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="holeGrad" cx="40%" cy="40%">
+      <stop offset="0%" style="stop-color:#000;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a1a1a;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+  <!-- Pothole main -->
+  <ellipse cx="256" cy="256" rx="45" ry="35" fill="url(#holeGrad)"/>
+  <!-- Cracked edges -->
+  <path d="M 220,240 Q 215,238 218,235" stroke="#333" stroke-width="3" fill="none"/>
+  <path d="M 285,245 Q 290,243 292,240" stroke="#333" stroke-width="3" fill="none"/>
+  <path d="M 240,285 Q 238,290 235,288" stroke="#333" stroke-width="3" fill="none"/>
+  <path d="M 275,280 Q 278,285 281,283" stroke="#333" stroke-width="3" fill="none"/>
+  <!-- Debris -->
+  <polygon points="230,250 235,248 233,253" fill="#444"/>
+  <polygon points="280,260 283,258 285,262" fill="#444"/>
+  <circle cx="250" cy="270" r="2" fill="#555"/>
+</svg>

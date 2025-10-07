@@ -1,0 +1,12 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Statue base -->
+  <rect x="226" y="290" width="60" height="20" fill="#666"/>
+  <polygon points="216,290 296,290 286,270 226,270" fill="#777"/>
+  <!-- Pedestal -->
+  <rect x="236" y="240" width="40" height="30" fill="#888"/>
+  <!-- Statue figure (abstract) -->
+  <circle cx="256" cy="220" r="18" fill="#999"/>
+  <rect x="246" y="235" width="20" height="35" fill="#999"/>
+  <polygon points="246,250 236,280 256,275 246,250" fill="#999"/>
+  <polygon points="266,250 276,280 256,275 266,250" fill="#999"/>
+</svg>
