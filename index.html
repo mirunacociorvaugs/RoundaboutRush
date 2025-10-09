@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ROUNDABOUT RUSH</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+
+        canvas {
+            display: block;
+            border-radius: 8px;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+        }
+
+        #mobile-button {
+            display: none;
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 4px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            font-size: 16px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            touch-action: manipulation;
+            user-select: none;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        #mobile-button:active {
+            background: rgba(255, 255, 255, 0.4);
+            transform: translateX(-50%) scale(0.95);
+        }
+
+        @media (max-width: 768px), (hover: none) {
+            #mobile-button {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="game"></div>
+    </div>
+    <button id="mobile-button">SWITCH<br>LANE</button>
+
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+    <script type="module" src="src/game.js"></script>
+</body>
+</html>
