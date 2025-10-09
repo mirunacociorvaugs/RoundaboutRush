@@ -52,6 +52,15 @@ export default class MainScene extends Phaser.Scene {
         // Hazard colors
         this.hazardColors = [0xff6600, 0xff0066, 0xffcc00, 0xff3366, 0x9900ff];
 
+        // Powerup system
+        this.activePowerup = null;  // Currently spawned powerup in world
+        this.powerupSpawnedAtLevel = null;  // Level when current powerup spawned
+        this.isInvincible = false;  // Invisibility effect active
+        this.activeEffect = null;  // 'speed' or 'invisibility'
+        this.activeEffectIcon = null;  // Visual indicator sprite
+        this.effectStartAngle = null;  // Angle when effect was activated
+        this.effectFlashWarning = false;  // Whether flash warning has started
+
         // Create layers
         this.createBackground();
         this.generateRoundabout();
@@ -132,21 +141,6 @@ export default class MainScene extends Phaser.Scene {
         // Outer lane circle (guideline) - thicker and brighter
         this.roundaboutGraphics.lineStyle(3, 0x4a90e2, 0.7);
         this.roundaboutGraphics.strokeCircle(this.centerX, this.centerY, this.outerRadius);
-
-        // Center lane divider (dashed effect) - more prominent
-        const middleRadius = (this.innerRadius + this.outerRadius) / 2;
-        this.roundaboutGraphics.lineStyle(2, 0xffcc00, 0.5);
-        for (let angle = 0; angle < 360; angle += 10) {
-            if (angle % 20 === 0) {
-                const rad1 = Phaser.Math.DegToRad(angle);
-                const rad2 = Phaser.Math.DegToRad(angle + 8);
-                const x1 = this.centerX + Math.cos(rad1) * middleRadius;
-                const y1 = this.centerY + Math.sin(rad1) * middleRadius;
-                const x2 = this.centerX + Math.cos(rad2) * middleRadius;
-                const y2 = this.centerY + Math.sin(rad2) * middleRadius;
-                this.roundaboutGraphics.lineBetween(x1, y1, x2, y2);
-            }
-        }
 
         // Center glow - bigger and more visible
         this.centerGlow = this.add.circle(this.centerX, this.centerY, 35, 0x00bcd4, 0.6);
@@ -436,6 +430,327 @@ export default class MainScene extends Phaser.Scene {
         hazard.spawned = true;
     }
 
+    spawnPowerup() {
+        // Don't spawn if one already exists
+        if (this.activePowerup) return;
+
+        // Choose random type (50/50)
+        const type = Math.random() < 0.5 ? 'speed' : 'invisibility';
+
+        // Find available angle not occupied by current orbit hazards
+        const occupiedAngles = this.hazards
+            .filter(h => h.orbitLevel === this.currentOrbitLevel && !h.passed)
+            .map(h => h.angle);
+
+        // Generate all possible angles (16 positions at 22.5° intervals)
+        const allAngles = [];
+        for (let i = 0; i < 16; i++) {
+            allAngles.push(i * 22.5);
+        }
+
+        // Filter out occupied angles (with buffer zone)
+        const availableAngles = allAngles.filter(angle => {
+            return !occupiedAngles.some(occupied => {
+                const diff = Math.abs(angle - occupied);
+                return diff < 22.5; // Require at least one position spacing
+            });
+        });
+
+        // If no available angles, skip spawning
+        if (availableAngles.length === 0) return;
+
+        // Pick random available angle
+        const angle = Phaser.Utils.Array.GetRandom(availableAngles);
+
+        // Choose lane (50/50)
+        const lane = Math.random() < 0.5 ? 'inner' : 'outer';
+        const radius = lane === 'outer' ? this.outerRadius : this.innerRadius;
+
+        // Calculate position
+        const rad = Phaser.Math.DegToRad(angle);
+        const x = this.centerX + Math.cos(rad) * radius;
+        const y = this.centerY + Math.sin(rad) * radius;
+
+        // Create powerup sprite
+        const powerupContainer = this.add.container(x, y);
+
+        if (type === 'speed') {
+            // SNAIL GRAPHIC
+            const color = 0x00ffff; // Cyan
+
+            // Outer glow
+            const outerGlow = this.add.circle(0, 0, 30, color, 0.3);
+            powerupContainer.add(outerGlow);
+
+            // Draw snail using graphics
+            const snail = this.add.graphics();
+
+            // Shell (spiral)
+            snail.fillStyle(color, 0.8);
+            snail.fillCircle(3, -2, 12);
+            snail.lineStyle(2, 0xffffff, 0.9);
+            snail.beginPath();
+            snail.arc(3, -2, 8, 0, Math.PI * 1.5, false);
+            snail.strokePath();
+            snail.beginPath();
+            snail.arc(3, -2, 5, 0, Math.PI * 1.5, false);
+            snail.strokePath();
+
+            // Body
+            snail.fillStyle(color, 0.9);
+            snail.fillEllipse(-5, 5, 14, 6);
+
+            // Antennae
+            snail.lineStyle(2, color, 1);
+            snail.beginPath();
+            snail.moveTo(-8, 2);
+            snail.lineTo(-12, -4);
+            snail.strokePath();
+            snail.beginPath();
+            snail.moveTo(-5, 2);
+            snail.lineTo(-7, -5);
+            snail.strokePath();
+
+            // Antenna tips
+            snail.fillStyle(0xffffff, 1);
+            snail.fillCircle(-12, -4, 2);
+            snail.fillCircle(-7, -5, 2);
+
+            powerupContainer.add(snail);
+
+            // Pulsing animation
+            this.tweens.add({
+                targets: outerGlow,
+                scale: 1.5,
+                alpha: 0.1,
+                duration: 600,
+                yoyo: true,
+                repeat: -1
+            });
+
+        } else {
+            // SHIELD GRAPHIC
+            const color = 0xff00ff; // Magenta
+
+            // Outer glow
+            const outerGlow = this.add.circle(0, 0, 30, color, 0.3);
+            powerupContainer.add(outerGlow);
+
+            // Draw shield using graphics
+            const shield = this.add.graphics();
+
+            // Shield outline
+            shield.lineStyle(3, 0xffffff, 1);
+            shield.fillStyle(color, 0.8);
+            shield.beginPath();
+            shield.moveTo(0, -15);
+            shield.lineTo(12, -10);
+            shield.lineTo(12, 5);
+            shield.lineTo(0, 15);
+            shield.lineTo(-12, 5);
+            shield.lineTo(-12, -10);
+            shield.closePath();
+            shield.fillPath();
+            shield.strokePath();
+
+            // Shield cross detail
+            shield.lineStyle(2, 0xffffff, 0.9);
+            shield.beginPath();
+            shield.moveTo(0, -12);
+            shield.lineTo(0, 12);
+            shield.strokePath();
+            shield.beginPath();
+            shield.moveTo(-9, -2);
+            shield.lineTo(9, -2);
+            shield.strokePath();
+
+            powerupContainer.add(shield);
+
+            // Pulsing animation
+            this.tweens.add({
+                targets: outerGlow,
+                scale: 1.5,
+                alpha: 0.1,
+                duration: 600,
+                yoyo: true,
+                repeat: -1
+            });
+        }
+
+        powerupContainer.setDepth(5); // Same depth as hazards
+
+        // Store powerup data
+        this.activePowerup = {
+            type: type,
+            angle: angle,
+            lane: lane,
+            radius: radius,
+            sprite: powerupContainer,
+            collected: false
+        };
+
+        this.powerupSpawnedAtLevel = this.level;
+    }
+
+    despawnPowerup() {
+        if (!this.activePowerup) return;
+
+        // Fade out and destroy sprite
+        if (this.activePowerup.sprite) {
+            this.tweens.add({
+                targets: this.activePowerup.sprite,
+                alpha: 0,
+                scale: 0.5,
+                duration: 400,
+                ease: 'Cubic.easeIn',
+                onComplete: () => {
+                    if (this.activePowerup && this.activePowerup.sprite) {
+                        this.activePowerup.sprite.destroy();
+                    }
+                }
+            });
+        }
+
+        // Reset powerup tracking
+        this.activePowerup = null;
+        this.powerupSpawnedAtLevel = null;
+    }
+
+    activatePowerup(type) {
+        // Don't activate if already have an active effect
+        if (this.activeEffect) return;
+
+        this.activeEffect = type;
+        this.effectStartAngle = this.currentAngle;
+        this.effectFlashWarning = false;
+
+        if (type === 'speed') {
+            // Speed reduction effect
+            const originalSpeed = this.rotationSpeed;
+            this.rotationSpeed = originalSpeed * 0.5; // 50% reduction
+
+            // Create snail icon on player
+            const color = 0x00ffff; // Cyan
+            this.activeEffectIcon = this.add.container(0, -35); // Position above player
+
+            // Background glow
+            const glow = this.add.circle(0, 0, 25, color, 0.3);
+            this.activeEffectIcon.add(glow);
+
+            // Draw snail (scaled up)
+            const snail = this.add.graphics();
+            snail.fillStyle(color, 0.9);
+            snail.fillCircle(4, -3, 15);
+            snail.lineStyle(2, 0xffffff, 1);
+            snail.beginPath();
+            snail.arc(4, -3, 10, 0, Math.PI * 1.5, false);
+            snail.strokePath();
+            snail.beginPath();
+            snail.arc(4, -3, 6, 0, Math.PI * 1.5, false);
+            snail.strokePath();
+            snail.fillStyle(color, 1);
+            snail.fillEllipse(-6, 6, 18, 8);
+            snail.lineStyle(2, color, 1);
+            snail.beginPath();
+            snail.moveTo(-10, 3);
+            snail.lineTo(-15, -5);
+            snail.strokePath();
+            snail.beginPath();
+            snail.moveTo(-6, 3);
+            snail.lineTo(-9, -6);
+            snail.strokePath();
+            snail.fillStyle(0xffffff, 1);
+            snail.fillCircle(-15, -5, 2.5);
+            snail.fillCircle(-9, -6, 2.5);
+
+            this.activeEffectIcon.add(snail);
+            this.scooter.add(this.activeEffectIcon);
+
+            // Gentle pulse
+            this.tweens.add({
+                targets: glow,
+                scale: 1.2,
+                alpha: 0.1,
+                duration: 400,
+                yoyo: true,
+                repeat: -1
+            });
+
+        } else if (type === 'invisibility') {
+            // Invisibility effect
+            this.isInvincible = true;
+
+            // Create shield icon on player
+            const color = 0xff00ff; // Magenta
+            this.activeEffectIcon = this.add.container(0, -35); // Position above player
+
+            // Background glow
+            const glow = this.add.circle(0, 0, 25, color, 0.3);
+            this.activeEffectIcon.add(glow);
+
+            // Draw shield (scaled up slightly)
+            const shield = this.add.graphics();
+            shield.lineStyle(3, 0xffffff, 1);
+            shield.fillStyle(color, 0.9);
+            shield.beginPath();
+            shield.moveTo(0, -18);
+            shield.lineTo(14, -12);
+            shield.lineTo(14, 6);
+            shield.lineTo(0, 18);
+            shield.lineTo(-14, 6);
+            shield.lineTo(-14, -12);
+            shield.closePath();
+            shield.fillPath();
+            shield.strokePath();
+            shield.lineStyle(2, 0xffffff, 1);
+            shield.beginPath();
+            shield.moveTo(0, -15);
+            shield.lineTo(0, 15);
+            shield.strokePath();
+            shield.beginPath();
+            shield.moveTo(-11, -2);
+            shield.lineTo(11, -2);
+            shield.strokePath();
+
+            this.activeEffectIcon.add(shield);
+            this.scooter.add(this.activeEffectIcon);
+
+            // Gentle pulse
+            this.tweens.add({
+                targets: glow,
+                scale: 1.2,
+                alpha: 0.1,
+                duration: 350,
+                yoyo: true,
+                repeat: -1
+            });
+        }
+    }
+
+    deactivatePowerup() {
+        if (!this.activeEffect) return;
+
+        const type = this.activeEffect;
+
+        // Restore effects
+        if (type === 'speed') {
+            this.rotationSpeed = this.baseRotationSpeed * (1 + (this.level - 1) * 0.007);
+        } else if (type === 'invisibility') {
+            this.isInvincible = false;
+        }
+
+        // Remove visual indicator
+        if (this.activeEffectIcon) {
+            this.activeEffectIcon.destroy();
+            this.activeEffectIcon = null;
+        }
+
+        // Reset tracking
+        this.activeEffect = null;
+        this.effectStartAngle = null;
+        this.effectFlashWarning = false;
+    }
+
     updateScooterPosition() {
         // Smooth radius transition
         if (this.isTransitioning) {
@@ -476,8 +791,10 @@ export default class MainScene extends Phaser.Scene {
 
                 // Use collision margin for safe passage between lanes
                 if (radiusDiff < this.collisionMargin) {
-                    // Collision!
-                    this.endGame();
+                    // Collision! (unless invincible)
+                    if (!this.isInvincible) {
+                        this.endGame();
+                    }
                 } else {
                     // Passed safely - award points
                     hazard.passed = true;
@@ -524,6 +841,44 @@ export default class MainScene extends Phaser.Scene {
                 });
             }
         });
+
+        // CHECK 3: Powerup pickup
+        if (this.activePowerup && !this.activePowerup.collected) {
+            const angleDiff = this.currentAngle - this.activePowerup.angle;
+            const normalizedDiff = ((angleDiff + 180) % 360) - 180;
+
+            // Use same collision window as hazards
+            if (normalizedDiff >= -1 && normalizedDiff < collisionWindow) {
+                // Check if player is in same lane
+                const playerRadius = this.currentRadius;
+                const powerupRadius = this.activePowerup.radius;
+                const radiusDiff = Math.abs(playerRadius - powerupRadius);
+
+                // Use collision margin for pickup
+                if (radiusDiff < this.collisionMargin) {
+                    // Collected!
+                    this.activePowerup.collected = true;
+                    this.activatePowerup(this.activePowerup.type);
+
+                    // Remove sprite with collection animation
+                    if (this.activePowerup.sprite) {
+                        this.tweens.add({
+                            targets: this.activePowerup.sprite,
+                            alpha: 0,
+                            scale: 2,
+                            duration: 300,
+                            ease: 'Cubic.easeOut',
+                            onComplete: () => {
+                                if (this.activePowerup && this.activePowerup.sprite) {
+                                    this.activePowerup.sprite.destroy();
+                                    this.activePowerup.sprite = null;
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        }
     }
 
     updateScore() {
@@ -543,6 +898,11 @@ export default class MainScene extends Phaser.Scene {
     checkOrbitComplete() {
         if (this.currentAngle >= 360) {
             this.currentAngle -= 360;
+
+            // Adjust effectStartAngle to account for angle wrapping
+            if (this.effectStartAngle !== null) {
+                this.effectStartAngle -= 360;
+            }
 
             // Advance orbit levels
             this.currentOrbitLevel++;
@@ -580,6 +940,20 @@ export default class MainScene extends Phaser.Scene {
 
             // Clean up old hazards from previous orbits
             this.cleanupOldHazards();
+
+            // Powerup lifecycle management
+            // Check if we should despawn current powerup (after 3 levels)
+            if (this.activePowerup && this.powerupSpawnedAtLevel !== null) {
+                const levelsSincePowerup = this.level - this.powerupSpawnedAtLevel;
+                if (levelsSincePowerup >= 3) {
+                    this.despawnPowerup();
+                }
+            }
+
+            // Check if we should spawn a new powerup (every 3 levels)
+            if (this.level % 3 === 0 && !this.activePowerup) {
+                this.spawnPowerup();
+            }
         }
     }
 
@@ -639,6 +1013,39 @@ export default class MainScene extends Phaser.Scene {
 
         // Check if orbit is complete
         this.checkOrbitComplete();
+
+        // Check powerup effect duration (half orbit = 180 degrees)
+        if (this.activeEffect && this.effectStartAngle !== null) {
+            let angleProgress = this.currentAngle - this.effectStartAngle;
+
+            // Handle angle wrapping (e.g., started at 350°, now at 10°)
+            if (angleProgress < 0) {
+                angleProgress += 360;
+            }
+
+            // Flash warning at 150 degrees (83% of 180)
+            if (angleProgress >= 150 && !this.effectFlashWarning) {
+                this.effectFlashWarning = true;
+
+                // Stop gentle pulse and start rapid flash on the glow (first child)
+                if (this.activeEffectIcon && this.activeEffectIcon.list.length > 0) {
+                    const glow = this.activeEffectIcon.list[0];
+                    this.tweens.killTweensOf(glow);
+                    this.tweens.add({
+                        targets: glow,
+                        alpha: 0.05,
+                        duration: 100,
+                        yoyo: true,
+                        repeat: -1
+                    });
+                }
+            }
+
+            // End effect after 180 degrees (half orbit)
+            if (angleProgress >= 180) {
+                this.deactivatePowerup();
+            }
+        }
     }
 
     handleResize(gameSize) {
@@ -694,5 +1101,18 @@ export default class MainScene extends Phaser.Scene {
                 hazard.sprite.y = y;
             }
         });
+
+        // Update powerup position if it exists
+        if (this.activePowerup && this.activePowerup.sprite) {
+            // Recalculate powerup radius based on new radii
+            this.activePowerup.radius = this.activePowerup.lane === 'outer' ? this.outerRadius : this.innerRadius;
+
+            const rad = Phaser.Math.DegToRad(this.activePowerup.angle);
+            const x = this.centerX + Math.cos(rad) * this.activePowerup.radius;
+            const y = this.centerY + Math.sin(rad) * this.activePowerup.radius;
+
+            this.activePowerup.sprite.x = x;
+            this.activePowerup.sprite.y = y;
+        }
     }
 }
