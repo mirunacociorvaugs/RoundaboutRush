@@ -18,6 +18,10 @@ export default class MainScene extends Phaser.Scene {
         this.gameOver = false;
         this.highScore = parseInt(localStorage.getItem('roundaboutRushHighScore')) || 0;
 
+        // Orbit tracking for continuous gameplay
+        this.currentOrbitLevel = 1;  // Which orbit's hazards are currently active
+        this.nextOrbitLevel = 2;     // Which orbit is pre-generated
+
         // Movement variables
         this.currentAngle = 0;
         this.baseRotationSpeed = 1; // degrees per frame
@@ -39,8 +43,22 @@ export default class MainScene extends Phaser.Scene {
         this.createUI();
         this.setupInput();
 
-        // Generate initial hazards
-        this.spawnHazards();
+        // Initialize hazards array
+        this.hazards = [];
+
+        // Generate and spawn orbit 1 hazards (current level)
+        const orbit1Hazards = this.generateHazardData(this.currentOrbitLevel);
+        orbit1Hazards.forEach(hazard => {
+            this.hazards.push(hazard);
+            this.spawnHazardSprite(hazard);
+        });
+
+        // Pre-generate orbit 2 hazards (next level) but don't spawn yet
+        const orbit2Hazards = this.generateHazardData(this.nextOrbitLevel);
+        orbit2Hazards.forEach(hazard => {
+            this.hazards.push(hazard);
+            // Don't spawn - will spawn when player passes that angle
+        });
     }
 
     createBackground() {
@@ -292,17 +310,10 @@ export default class MainScene extends Phaser.Scene {
         this.isTransitioning = true;
     }
 
-    spawnHazards() {
-        // Clear old hazards
-        if (this.hazards) {
-            this.hazards.forEach(h => h.sprite.destroy());
-        }
-
-        this.hazards = [];
-
-        // Calculate hazard count based on level
+    generateHazardData(orbitLevel) {
+        // Calculate hazard count based on orbit level
         const baseHazards = 4;
-        const additionalHazards = Math.floor(this.level / 3);
+        const additionalHazards = Math.floor(orbitLevel / 3);
         const hazardCount = Math.min(baseHazards + additionalHazards, 12);
 
         // 16 discrete angular positions
@@ -318,6 +329,7 @@ export default class MainScene extends Phaser.Scene {
         // Assign lanes ensuring valid path exists
         const lanes = ['inner', 'outer'];
         const usedPositions = {};
+        const generatedHazards = [];
 
         selectedPositions.forEach(angle => {
             let lane = Phaser.Utils.Array.GetRandom(lanes);
@@ -337,50 +349,61 @@ export default class MainScene extends Phaser.Scene {
                 lane: lane,
                 color: hazardColor,
                 radius: radius,
-                passed: false
+                orbitLevel: orbitLevel,  // Track which orbit this belongs to
+                spawned: false,          // Has sprite been created?
+                passed: false,
+                sprite: null
             };
 
-            // Create glowing hazard dot (bigger to match scene)
-            const rad = Phaser.Math.DegToRad(angle);
-            const x = this.centerX + Math.cos(rad) * radius;
-            const y = this.centerY + Math.sin(rad) * radius;
-
-            const hazardContainer = this.add.container(x, y);
-
-            // Outer glow - bigger
-            const outerGlow = this.add.circle(0, 0, 22, hazardColor, 0.3);
-            // Middle layer
-            const middleGlow = this.add.circle(0, 0, 14, hazardColor, 0.7);
-            // Inner bright ring
-            const innerRing = this.add.circle(0, 0, 9, hazardColor, 0.85);
-            // Core
-            const core = this.add.circle(0, 0, 6, 0xffffff, 0.9);
-
-            hazardContainer.add([outerGlow, middleGlow, innerRing, core]);
-            hazardContainer.setDepth(5);  // Render above roundabout but below player
-
-            // Gentle pulsing
-            this.tweens.add({
-                targets: outerGlow,
-                scale: 1.4,
-                alpha: 0.1,
-                duration: 1000,
-                yoyo: true,
-                repeat: -1
-            });
-
-            // Core twinkle
-            this.tweens.add({
-                targets: core,
-                alpha: 0.5,
-                duration: 1200,
-                yoyo: true,
-                repeat: -1
-            });
-
-            hazard.sprite = hazardContainer;
-            this.hazards.push(hazard);
+            generatedHazards.push(hazard);
         });
+
+        return generatedHazards;
+    }
+
+    spawnHazardSprite(hazard) {
+        if (hazard.spawned || hazard.sprite) return;  // Already spawned
+
+        // Create glowing hazard dot
+        const rad = Phaser.Math.DegToRad(hazard.angle);
+        const x = this.centerX + Math.cos(rad) * hazard.radius;
+        const y = this.centerY + Math.sin(rad) * hazard.radius;
+
+        const hazardContainer = this.add.container(x, y);
+
+        // Outer glow - bigger
+        const outerGlow = this.add.circle(0, 0, 22, hazard.color, 0.3);
+        // Middle layer
+        const middleGlow = this.add.circle(0, 0, 14, hazard.color, 0.7);
+        // Inner bright ring
+        const innerRing = this.add.circle(0, 0, 9, hazard.color, 0.85);
+        // Core
+        const core = this.add.circle(0, 0, 6, 0xffffff, 0.9);
+
+        hazardContainer.add([outerGlow, middleGlow, innerRing, core]);
+        hazardContainer.setDepth(5);  // Render above roundabout but below player
+
+        // Gentle pulsing
+        this.tweens.add({
+            targets: outerGlow,
+            scale: 1.4,
+            alpha: 0.1,
+            duration: 1000,
+            yoyo: true,
+            repeat: -1
+        });
+
+        // Core twinkle
+        this.tweens.add({
+            targets: core,
+            alpha: 0.5,
+            duration: 1200,
+            yoyo: true,
+            repeat: -1
+        });
+
+        hazard.sprite = hazardContainer;
+        hazard.spawned = true;
     }
 
     updateScooterPosition() {
@@ -405,8 +428,10 @@ export default class MainScene extends Phaser.Scene {
         // Scale collision window with speed to prevent tunneling at high levels
         const collisionWindow = Math.max(8, this.rotationSpeed * 2);
 
+        // CHECK 1: Current orbit hazards (collision detection + despawn)
         this.hazards.forEach(hazard => {
             if (hazard.passed) return;
+            if (hazard.orbitLevel !== this.currentOrbitLevel) return;
 
             // Check if scooter is at or past this hazard position
             const angleDiff = this.currentAngle - hazard.angle;
@@ -428,7 +453,45 @@ export default class MainScene extends Phaser.Scene {
                     hazard.passed = true;
                     this.score += this.level;
                     this.updateScore();
+
+                    // Delay 300ms before fading out current hazard
+                    this.time.delayedCall(300, () => {
+                        if (hazard.sprite && !this.gameOver) {
+                            this.tweens.add({
+                                targets: hazard.sprite,
+                                alpha: 0,
+                                scale: 0.5,
+                                duration: 300,
+                                ease: 'Cubic.easeIn',
+                                onComplete: () => {
+                                    if (hazard.sprite) {
+                                        hazard.sprite.destroy();
+                                        hazard.sprite = null;
+                                    }
+                                }
+                            });
+                        }
+                    });
                 }
+            }
+        });
+
+        // CHECK 2: Next orbit hazards (spawning) - INDEPENDENT of despawn
+        this.hazards.forEach(hazard => {
+            if (hazard.spawned) return;
+            if (hazard.orbitLevel !== this.nextOrbitLevel) return;
+
+            // Check if player has reached this hazard's angle
+            const angleDiff = this.currentAngle - hazard.angle;
+            const normalizedDiff = ((angleDiff + 180) % 360) - 180;
+
+            // Spawn when player reaches this angle (with 300ms delay)
+            if (normalizedDiff >= -1 && normalizedDiff < collisionWindow) {
+                this.time.delayedCall(300, () => {
+                    if (!this.gameOver) {
+                        this.spawnHazardSprite(hazard);
+                    }
+                });
             }
         });
     }
@@ -451,36 +514,61 @@ export default class MainScene extends Phaser.Scene {
         if (this.currentAngle >= 360) {
             this.currentAngle -= 360;
 
-            // Level up
+            // Advance orbit levels
+            this.currentOrbitLevel++;
+            this.nextOrbitLevel++;
+
+            // Level up (for display)
             this.level++;
             this.levelText.setText('LEVEL: ' + this.level);
-
-            // Flash effect - bigger and more dramatic
-            const flash = this.add.circle(this.centerX, this.centerY, 150, 0xffffff, 0.7);
-            this.tweens.add({
-                targets: flash,
-                alpha: 0,
-                scale: 4,
-                duration: 500,
-                ease: 'Cubic.easeOut',
-                onComplete: () => flash.destroy()
-            });
 
             // Update speed
             this.updateSpeed();
 
-            // Generate new roundabout
+            // Subtle level transition effect (optional - much less intrusive)
+            const flash = this.add.circle(this.centerX, this.centerY, 80, 0xffffff, 0.3);
+            this.tweens.add({
+                targets: flash,
+                alpha: 0,
+                scale: 2,
+                duration: 300,
+                ease: 'Cubic.easeOut',
+                onComplete: () => flash.destroy()
+            });
+
+            // Generate new roundabout (seamless)
             this.roundaboutGraphics.destroy();
             this.centerGlow.destroy();
             this.generateRoundabout();
 
-            // Delay hazard spawning to prevent spawning on player position
-            this.time.delayedCall(100, () => {
-                if (!this.gameOver) {
-                    this.spawnHazards();
-                }
+            // Pre-generate next orbit hazards (no delay needed)
+            const nextOrbitHazards = this.generateHazardData(this.nextOrbitLevel);
+            nextOrbitHazards.forEach(hazard => {
+                this.hazards.push(hazard);
+                // Don't spawn - will spawn when player passes that angle
             });
+
+            // Clean up old hazards from previous orbits
+            this.cleanupOldHazards();
         }
+    }
+
+    cleanupOldHazards() {
+        // Remove hazards from orbits that are no longer relevant
+        // Keep current and next orbit, remove everything else
+        this.hazards = this.hazards.filter(hazard => {
+            // Keep if it's current or next orbit
+            if (hazard.orbitLevel >= this.currentOrbitLevel) {
+                return true;
+            }
+
+            // Old orbit - destroy sprite if it exists and remove
+            if (hazard.sprite) {
+                hazard.sprite.destroy();
+                hazard.sprite = null;
+            }
+            return false;
+        });
     }
 
     endGame() {
