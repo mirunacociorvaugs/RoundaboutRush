@@ -8,9 +8,28 @@ export default class MainScene extends Phaser.Scene {
     }
 
     create() {
-        // Initialize game state
-        this.centerX = 400;
-        this.centerY = 400;
+        // Get actual canvas dimensions
+        const canvasWidth = this.scale.width;
+        const canvasHeight = this.scale.height;
+
+        // Center is actual canvas center (dynamic)
+        this.centerX = canvasWidth / 2;
+        this.centerY = canvasHeight / 2;
+
+        // Detect mobile vs desktop for sizing
+        this.isMobile = window.matchMedia("(max-width: 768px)").matches ||
+                        ('ontouchstart' in window);
+
+        // Calculate roundabout size based on device and viewport
+        const viewportSizePercent = this.isMobile ? 0.95 : 0.75;
+        const baseSize = Math.min(canvasWidth, canvasHeight) * viewportSizePercent;
+
+        // Set radii proportionally (maintaining 280:370 ratio)
+        this.outerRadius = baseSize / 2;
+        this.innerRadius = this.outerRadius * (280 / 370);
+
+        // Collision safety margin scales with roundabout size (1/3 of lane spacing)
+        this.collisionMargin = (this.outerRadius - this.innerRadius) / 3;
 
         // Game variables
         this.score = 0;
@@ -30,9 +49,6 @@ export default class MainScene extends Phaser.Scene {
         this.isTransitioning = false;
         this.transitionSpeed = 0.15;
 
-        // Collision safety margin (similar to around-master's orbit offset logic)
-        this.collisionMargin = 30;
-
         // Hazard colors
         this.hazardColors = [0xff6600, 0xff0066, 0xffcc00, 0xff3366, 0x9900ff];
 
@@ -42,6 +58,9 @@ export default class MainScene extends Phaser.Scene {
         this.createScooter();
         this.createUI();
         this.setupInput();
+
+        // Listen for resize events
+        this.scale.on('resize', this.handleResize, this);
 
         // Initialize hazards array
         this.hazards = [];
@@ -62,15 +81,16 @@ export default class MainScene extends Phaser.Scene {
     }
 
     createBackground() {
-        // Dark gradient background
+        // Dark gradient background (dynamic size)
         const bg = this.add.graphics();
         bg.fillGradientStyle(0x2d3561, 0x2d3561, 0x1a1a2e, 0x1a1a2e, 1);
-        bg.fillRect(0, 0, 800, 800);
+        bg.fillRect(0, 0, this.scale.width, this.scale.height);
 
-        // Add some ambient glowing particles
+        // Add some ambient glowing particles (dynamic positioning)
+        const margin = 50;
         for (let i = 0; i < 20; i++) {
-            const x = Phaser.Math.Between(50, 750);
-            const y = Phaser.Math.Between(50, 750);
+            const x = Phaser.Math.Between(margin, this.scale.width - margin);
+            const y = Phaser.Math.Between(margin, this.scale.height - margin);
             const size = Phaser.Math.Between(1, 3);
             const alpha = Phaser.Math.FloatBetween(0.2, 0.6);
 
@@ -88,36 +108,15 @@ export default class MainScene extends Phaser.Scene {
     }
 
     generateRoundabout() {
-        // Generate roundabout parameters based on level
-        const minDiameter = 200;
-        const maxDiameter = 350;
-        const progress = Math.min(this.level / 50, 1);
-        this.roundaboutDiameter = minDiameter + (maxDiameter - minDiameter) * progress;
-
-        if (this.level > 50) {
-            this.roundaboutDiameter = Phaser.Math.Between(minDiameter, maxDiameter);
-        }
-
-        // Orbit radii (scaled with diameter) - made bigger
-        const scale = this.roundaboutDiameter / 300;
-        this.innerRadius = 220 * scale;
-        this.outerRadius = 310 * scale;
-
-        // Preserve player's current lane state when regenerating
+        // Radii are calculated in create() or handleResize()
+        // Initialize player position on first level
         if (this.level === 1) {
-            // First time - start in outer lane
             this.currentRadius = this.outerRadius;
             this.targetRadius = this.outerRadius;
-        } else {
-            // Maintain current lane position across level transitions
-            this.currentRadius = this.isOuterLane ? this.outerRadius : this.innerRadius;
-            this.targetRadius = this.currentRadius;
-            // Cancel any ongoing transition
-            this.isTransitioning = false;
         }
 
-        // Transition speed based on roundabout size (larger = slower lane switch)
-        this.transitionSpeed = 0.15 * (300 / this.roundaboutDiameter);
+        // Fixed transition speed
+        this.transitionSpeed = 0.15;
 
         // Draw roundabout lanes
         this.roundaboutGraphics = this.add.graphics();
@@ -201,9 +200,12 @@ export default class MainScene extends Phaser.Scene {
     }
 
     createUI() {
-        // Score display - moved to top for visibility
+        // Responsive HUD font size
+        const hudSize = Math.floor(Math.min(this.scale.width, this.scale.height) * 0.04) + 'px';
+
+        // Score display - top left (dynamic position)
         this.scoreText = this.add.text(20, 20, 'SCORE: 0', {
-            fontSize: '28px',
+            fontSize: hudSize,
             fill: '#fff',
             fontFamily: 'Arial',
             fontStyle: 'bold',
@@ -212,9 +214,9 @@ export default class MainScene extends Phaser.Scene {
         });
         this.scoreText.setDepth(100);  // Always on top
 
-        // Level display - moved to top for visibility
-        this.levelText = this.add.text(780, 20, 'LEVEL: 1', {
-            fontSize: '28px',
+        // Level display - top right (dynamic position)
+        this.levelText = this.add.text(this.scale.width - 20, 20, 'LEVEL: 1', {
+            fontSize: hudSize,
             fill: '#fff',
             fontFamily: 'Arial',
             fontStyle: 'bold',
@@ -228,9 +230,19 @@ export default class MainScene extends Phaser.Scene {
         this.gameOverContainer.setAlpha(0);
         this.gameOverContainer.setDepth(1000);  // Always render above everything
 
-        const overlay = this.add.rectangle(0, 0, 800, 800, 0x000000, 0.8);
-        const gameOverText = this.add.text(0, -100, 'GAME OVER', {
-            fontSize: '72px',
+        // Responsive font sizes based on screen size
+        const screenSize = Math.min(this.scale.width, this.scale.height);
+        const titleSize = Math.floor(screenSize * 0.12) + 'px';
+        const scoreSize = Math.floor(screenSize * 0.06) + 'px';
+        const textSize = Math.floor(screenSize * 0.045) + 'px';
+        const smallSize = Math.floor(screenSize * 0.035) + 'px';
+
+        // Responsive vertical spacing
+        const spacing = screenSize * 0.08;
+
+        const overlay = this.add.rectangle(0, 0, this.scale.width * 2, this.scale.height * 2, 0x000000, 0.8);
+        const gameOverText = this.add.text(0, -spacing * 1.5, 'GAME OVER', {
+            fontSize: titleSize,
             fill: '#fff',
             fontFamily: 'Arial',
             fontStyle: 'bold',
@@ -238,21 +250,21 @@ export default class MainScene extends Phaser.Scene {
             strokeThickness: 4
         }).setOrigin(0.5);
 
-        this.finalScoreText = this.add.text(0, -20, '', {
-            fontSize: '36px',
+        this.finalScoreText = this.add.text(0, -spacing * 0.3, '', {
+            fontSize: scoreSize,
             fill: '#ffcc00',
             fontFamily: 'Arial',
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        this.highScoreText = this.add.text(0, 30, '', {
-            fontSize: '28px',
+        this.highScoreText = this.add.text(0, spacing * 0.4, '', {
+            fontSize: textSize,
             fill: '#fff',
             fontFamily: 'Arial'
         }).setOrigin(0.5);
 
-        this.newRecordText = this.add.text(0, 75, 'NEW RECORD!', {
-            fontSize: '32px',
+        this.newRecordText = this.add.text(0, spacing * 1.1, 'NEW RECORD!', {
+            fontSize: textSize,
             fill: '#00ff00',
             fontFamily: 'Arial',
             fontStyle: 'bold',
@@ -260,8 +272,8 @@ export default class MainScene extends Phaser.Scene {
             strokeThickness: 3
         }).setOrigin(0.5).setAlpha(0);
 
-        const restartText = this.add.text(0, 140, 'Press SPACE or TAP to restart', {
-            fontSize: '22px',
+        const restartText = this.add.text(0, spacing * 2, 'Press SPACE or TAP to restart', {
+            fontSize: smallSize,
             fill: '#aaa',
             fontFamily: 'Arial'
         }).setOrigin(0.5);
@@ -303,7 +315,7 @@ export default class MainScene extends Phaser.Scene {
     }
 
     switchLane() {
-        if (this.isTransitioning || this.gameOver) return;
+        if (this.gameOver) return;
 
         this.isOuterLane = !this.isOuterLane;
         this.targetRadius = this.isOuterLane ? this.outerRadius : this.innerRadius;
@@ -326,20 +338,38 @@ export default class MainScene extends Phaser.Scene {
         Phaser.Utils.Array.Shuffle(positions);
         const selectedPositions = positions.slice(0, hazardCount);
 
-        // Assign lanes ensuring valid path exists
-        const lanes = ['inner', 'outer'];
-        const usedPositions = {};
+        // Sort by angle for sequential lane assignment
+        selectedPositions.sort((a, b) => a - b);
+
+        // Track lane assignment pattern
+        let previousLane = null;
+        let previousWasSameLane = false;
         const generatedHazards = [];
 
-        selectedPositions.forEach(angle => {
-            let lane = Phaser.Utils.Array.GetRandom(lanes);
+        selectedPositions.forEach((angle, index) => {
+            let lane;
 
-            // Check if this angle already has a hazard
-            if (usedPositions[angle]) {
-                // Force opposite lane
-                lane = usedPositions[angle] === 'inner' ? 'outer' : 'inner';
+            if (orbitLevel === 1 && index === 0) {
+                // First hazard in first orbit - opposite of player's starting lane (outer)
+                lane = 'inner';
+            } else if (index === 0) {
+                // First hazard in other orbits - random 50/50
+                lane = Math.random() < 0.5 ? 'inner' : 'outer';
+            } else if (previousWasSameLane) {
+                // Previous hazard was in same lane as the one before it - force opposite
+                lane = previousLane === 'inner' ? 'outer' : 'inner';
+            } else {
+                // 50% chance same lane, 50% chance opposite lane
+                if (Math.random() < 0.5) {
+                    lane = previousLane; // Same
+                } else {
+                    lane = previousLane === 'inner' ? 'outer' : 'inner'; // Opposite
+                }
             }
-            usedPositions[angle] = lane;
+
+            // Update tracking for next iteration
+            previousWasSameLane = (lane === previousLane);
+            previousLane = lane;
 
             const hazardColor = Phaser.Utils.Array.GetRandom(this.hazardColors);
             const radius = lane === 'outer' ? this.outerRadius : this.innerRadius;
@@ -609,5 +639,60 @@ export default class MainScene extends Phaser.Scene {
 
         // Check if orbit is complete
         this.checkOrbitComplete();
+    }
+
+    handleResize(gameSize) {
+        // Update center
+        this.centerX = gameSize.width / 2;
+        this.centerY = gameSize.height / 2;
+
+        // Recalculate roundabout size
+        const viewportSizePercent = this.isMobile ? 0.95 : 0.75;
+        const baseSize = Math.min(gameSize.width, gameSize.height) * viewportSizePercent;
+
+        this.outerRadius = baseSize / 2;
+        this.innerRadius = this.outerRadius * (280 / 370);
+
+        // Update collision margin (scales with roundabout)
+        this.collisionMargin = (this.outerRadius - this.innerRadius) / 3;
+
+        // Update player target radii
+        this.targetRadius = this.isOuterLane ? this.outerRadius : this.innerRadius;
+
+        // Update UI positions
+        if (this.levelText) {
+            this.levelText.x = gameSize.width - 20;
+        }
+        if (this.gameOverContainer) {
+            this.gameOverContainer.x = this.centerX;
+            this.gameOverContainer.y = this.centerY;
+        }
+
+        // Regenerate roundabout graphics
+        if (this.roundaboutGraphics) {
+            this.roundaboutGraphics.destroy();
+        }
+        if (this.centerGlow) {
+            this.centerGlow.destroy();
+        }
+        this.generateRoundabout();
+
+        // Update player position
+        this.updateScooterPosition();
+
+        // Update all hazard positions
+        this.hazards.forEach(hazard => {
+            if (hazard.spawned && hazard.sprite) {
+                // Recalculate hazard radius based on new radii
+                hazard.radius = hazard.lane === 'outer' ? this.outerRadius : this.innerRadius;
+
+                const rad = Phaser.Math.DegToRad(hazard.angle);
+                const x = this.centerX + Math.cos(rad) * hazard.radius;
+                const y = this.centerY + Math.sin(rad) * hazard.radius;
+
+                hazard.sprite.x = x;
+                hazard.sprite.y = y;
+            }
+        });
     }
 }

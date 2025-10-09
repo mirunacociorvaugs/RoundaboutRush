@@ -1,13 +1,13 @@
 export default {
     type: Phaser.AUTO,
-    width: 800,
-    height: 800,
-    parent: 'game',
-    backgroundColor: '#1a1a2e',
     scale: {
-        mode: Phaser.Scale.FIT,
+        mode: Phaser.Scale.RESIZE,
+        parent: 'game',
+        width: '100%',
+        height: '100%',
         autoCenter: Phaser.Scale.CENTER_BOTH
     },
+    backgroundColor: '#1a1a2e',
     physics: {
         default: 'arcade',
         arcade: {
