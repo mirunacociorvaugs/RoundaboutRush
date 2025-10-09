@@ -54,6 +54,78 @@ export default class MainScene extends Phaser.Scene {
         // Hazard colors
         this.hazardColors = [0xff6600, 0xff0066, 0xffcc00, 0xff3366, 0x9900ff];
 
+        // Pattern library for obstacle generation
+        this.hazardPatterns = {
+            // Teaching patterns (Levels 1-5)
+            'zigzag': [
+                { angleOffset: 0, lane: 'inner' },
+                { angleOffset: 90, lane: 'outer' },
+                { angleOffset: 180, lane: 'inner' },
+                { angleOffset: 270, lane: 'outer' }
+            ],
+            'wave': [
+                { angleOffset: 0, lane: 'inner' },
+                { angleOffset: 67.5, lane: 'middle' },
+                { angleOffset: 135, lane: 'outer' },
+                { angleOffset: 202.5, lane: 'middle' },
+                { angleOffset: 270, lane: 'inner' }
+            ],
+            'alternating': [
+                { angleOffset: 45, lane: 'inner' },
+                { angleOffset: 135, lane: 'outer' },
+                { angleOffset: 225, lane: 'inner' },
+                { angleOffset: 315, lane: 'outer' }
+            ],
+
+            // Intermediate patterns (Levels 6-15)
+            'doubleWall': [
+                { angleOffset: 90, lane: 'inner' },
+                { angleOffset: 90, lane: 'middle' },
+                { angleOffset: 180, lane: 'outer' },
+                { angleOffset: 270, lane: 'inner' },
+                { angleOffset: 270, lane: 'outer' }
+            ],
+            'spiral': [
+                { angleOffset: 0, lane: 'outer' },
+                { angleOffset: 45, lane: 'middle' },
+                { angleOffset: 90, lane: 'inner' },
+                { angleOffset: 135, lane: 'middle' },
+                { angleOffset: 180, lane: 'outer' },
+                { angleOffset: 225, lane: 'middle' },
+                { angleOffset: 270, lane: 'inner' }
+            ],
+            'checkpoint': [
+                { angleOffset: 60, lane: 'inner' },
+                { angleOffset: 120, lane: 'middle' },
+                { angleOffset: 180, lane: 'inner' },
+                { angleOffset: 180, lane: 'outer' },
+                { angleOffset: 240, lane: 'middle' },
+                { angleOffset: 300, lane: 'outer' }
+            ],
+
+            // Expert patterns (Levels 16+)
+            'maze': [
+                { angleOffset: 22.5, lane: 'inner' },
+                { angleOffset: 22.5, lane: 'outer' },
+                { angleOffset: 67.5, lane: 'middle' },
+                { angleOffset: 112.5, lane: 'inner' },
+                { angleOffset: 157.5, lane: 'outer' },
+                { angleOffset: 202.5, lane: 'inner' },
+                { angleOffset: 202.5, lane: 'middle' },
+                { angleOffset: 247.5, lane: 'outer' }
+            ],
+            'dense': [
+                { angleOffset: 45, lane: 'inner' },
+                { angleOffset: 45, lane: 'outer' },
+                { angleOffset: 90, lane: 'middle' },
+                { angleOffset: 135, lane: 'inner' },
+                { angleOffset: 135, lane: 'outer' },
+                { angleOffset: 180, lane: 'middle' },
+                { angleOffset: 225, lane: 'inner' },
+                { angleOffset: 270, lane: 'outer' }
+            ]
+        };
+
         // Powerup system
         this.activePowerup = null;  // Currently spawned powerup in world
         this.powerupSpawnedAtLevel = null;  // Level when current powerup spawned
@@ -378,167 +450,74 @@ export default class MainScene extends Phaser.Scene {
     }
 
     generateHazardData(orbitLevel) {
-        // Calculate hazard count with better progression
+        // Step 1: Determine pattern tier and randomness mix
+        let patternTier;
+        let randomMix;
+        let teachingPatterns = ['zigzag', 'wave', 'alternating'];
+        let intermediatePatterns = ['doubleWall', 'spiral', 'checkpoint'];
+        let expertPatterns = ['maze', 'dense'];
+
+        if (orbitLevel <= 5) {
+            patternTier = 'teaching';
+            randomMix = 0.2; // 80% pattern, 20% random
+        } else if (orbitLevel <= 15) {
+            patternTier = 'intermediate';
+            randomMix = 0.4; // 60% pattern, 40% random
+        } else {
+            patternTier = 'expert';
+            randomMix = 0.5; // 50% pattern, 50% random
+        }
+
+        // Step 2: Pick appropriate pattern
+        let selectedPattern;
+        if (patternTier === 'teaching') {
+            selectedPattern = Phaser.Utils.Array.GetRandom(teachingPatterns);
+        } else if (patternTier === 'intermediate') {
+            selectedPattern = Phaser.Utils.Array.GetRandom(intermediatePatterns);
+        } else {
+            selectedPattern = Phaser.Utils.Array.GetRandom(expertPatterns);
+        }
+
+        // Step 3: Apply pattern with random rotation offset
+        const rotationOffsets = [0, 22.5, 45, 67.5, 90, 112.5, 135, 157.5];
+        const rotationOffset = Phaser.Utils.Array.GetRandom(rotationOffsets);
+        let generatedHazards = this.applyPattern(selectedPattern, rotationOffset, orbitLevel);
+
+        // Step 4: Calculate target hazard count
         const baseHazards = 3;
         const additionalHazards = Math.floor(orbitLevel / 2);
-        const hazardCount = Math.min(baseHazards + additionalHazards, 16);
+        let targetCount = baseHazards + additionalHazards;
 
-        // All 16 discrete angular positions
-        const allAngles = [];
-        for (let i = 0; i < 16; i++) {
-            allAngles.push(i * 22.5);
-        }
-
-        const generatedHazards = [];
-        const lanes = ['inner', 'middle', 'outer'];
-        const angleUsage = {}; // Track how many hazards at each angle
-
-        // Track lane assignment pattern for fairness
-        let previousLane = null;
-        let previousWasSameLane = false;
-
-        // Minimum spacing based on level (for fair reaction time)
-        let minSpacing;
-        if (orbitLevel <= 5) {
-            minSpacing = 67.5; // 3 positions spacing (easier for beginners)
-        } else if (orbitLevel <= 15) {
-            minSpacing = 45; // 2 positions spacing
+        // Cap at 16 for levels 1-25
+        if (orbitLevel <= 25) {
+            targetCount = Math.min(targetCount, 16);
         } else {
-            minSpacing = 22.5; // 1 position spacing (expert)
+            // For levels 26+, add 1 enemy per 5 levels
+            const bonusEnemies = Math.floor((orbitLevel - 26) / 5);
+            targetCount = Math.min(16 + bonusEnemies, 19); // Max 19 enemies at level 41+
         }
 
-        for (let i = 0; i < hazardCount; i++) {
-            // Smart angle selection with minimum spacing
-            let angle;
-            let attempts = 0;
+        // Step 5: Add random hazards to meet target count
+        const randomCount = Math.max(0, Math.floor((targetCount - generatedHazards.length) * (1 + randomMix)));
 
-            // Get angles that meet spacing and max-2-per-angle requirements
-            const validAngles = allAngles.filter(testAngle => {
-                // Check max 2 per angle
-                if (angleUsage[testAngle] >= 2) return false;
-
-                // Check minimum spacing from all placed hazards
-                for (let hazard of generatedHazards) {
-                    const diff = Math.min(
-                        Math.abs(testAngle - hazard.angle),
-                        360 - Math.abs(testAngle - hazard.angle)
-                    );
-                    if (diff < minSpacing && diff > 0) return false;
-                }
-                return true;
-            });
-
-            // Pick from valid angles, or relax constraints if none available
-            if (validAngles.length > 0) {
-                angle = Phaser.Utils.Array.GetRandom(validAngles);
-            } else {
-                // Fallback: just ensure max 2 per angle (ignore spacing)
-                do {
-                    angle = Phaser.Utils.Array.GetRandom(allAngles);
-                    attempts++;
-                    if (attempts > 100) break;
-                } while (angleUsage[angle] >= 2);
-            }
-
-            // Initialize angle usage
-            if (!angleUsage[angle]) angleUsage[angle] = 0;
-
-            // Determine available lanes for this angle
-            let availableLanes = [...lanes];
-
-            // If there's already a hazard at this angle, exclude its lane
-            if (angleUsage[angle] === 1) {
-                const existingHazard = generatedHazards.find(h => h.angle === angle);
-                if (existingHazard) {
-                    availableLanes = availableLanes.filter(l => l !== existingHazard.lane);
-                }
-            }
-
-            // If powerup exists at this angle, exclude its lane
-            if (this.activePowerup && this.activePowerup.angle === angle) {
-                availableLanes = availableLanes.filter(l => l !== this.activePowerup.lane);
-            }
-
-            // First hazard safety check (level 1 only)
-            if (orbitLevel === 1 && i === 0) {
-                // Avoid angles near player start (0°, 22.5°, 337.5°)
-                const unsafeAngles = [0, 22.5, 337.5];
-                while (unsafeAngles.includes(angle)) {
-                    angle = Phaser.Utils.Array.GetRandom(allAngles);
-                }
-                // Not in player's starting lane (outer)
-                availableLanes = availableLanes.filter(l => l !== 'outer');
-            }
-
-            // Apply fairness rules: no 3 consecutive same lane
-            let lane;
-            if (i === 0) {
-                // First hazard: pick from available lanes
-                lane = Phaser.Utils.Array.GetRandom(availableLanes);
-            } else if (previousWasSameLane) {
-                // Force different lane
-                const fairLanes = availableLanes.filter(l => l !== previousLane);
-                lane = fairLanes.length > 0 ? Phaser.Utils.Array.GetRandom(fairLanes) : Phaser.Utils.Array.GetRandom(availableLanes);
-            } else {
-                // 50% same, 50% different
-                if (Math.random() < 0.5 && availableLanes.includes(previousLane)) {
-                    lane = previousLane;
-                } else {
-                    const differentLanes = availableLanes.filter(l => l !== previousLane);
-                    lane = differentLanes.length > 0 ? Phaser.Utils.Array.GetRandom(differentLanes) : Phaser.Utils.Array.GetRandom(availableLanes);
-                }
-            }
-
-            // Update tracking
-            previousWasSameLane = (lane === previousLane);
-            previousLane = lane;
-            angleUsage[angle]++;
-
-            // Determine radius
-            let radius;
-            if (lane === 'outer') {
-                radius = this.outerRadius;
-            } else if (lane === 'middle') {
-                radius = this.middleRadius;
-            } else {
-                radius = this.innerRadius;
-            }
-
-            const hazardColor = Phaser.Utils.Array.GetRandom(this.hazardColors);
-
-            const hazard = {
-                angle: angle,
-                lane: lane,
-                color: hazardColor,
-                radius: radius,
-                orbitLevel: orbitLevel,
-                spawned: false,
-                passed: false,
-                sprite: null
-            };
-
-            generatedHazards.push(hazard);
+        for (let i = 0; i < randomCount; i++) {
+            const randomHazard = this.generateRandomHazard(generatedHazards, orbitLevel);
+            generatedHazards.push(randomHazard);
         }
 
-        // Safe path verification: ensure at least one lane is always safe
-        // Check each lane to see if it has a continuous safe path
+        // Step 6: Safe path verification
+        const lanes = ['inner', 'middle', 'outer'];
         const safeLanes = lanes.filter(checkLane => {
-            // For this lane, check all angles for hazards
             const hazardsInLane = generatedHazards.filter(h => h.lane === checkLane);
 
-            // If lane has no hazards, it's completely safe
             if (hazardsInLane.length === 0) return true;
 
-            // If lane has hazards, check if gaps are large enough to switch in/out
-            // Sort hazards by angle
             const sortedHazards = [...hazardsInLane].sort((a, b) => a.angle - b.angle);
 
-            // Check gaps between consecutive hazards (including wrap-around)
             for (let i = 0; i < sortedHazards.length; i++) {
                 const current = sortedHazards[i];
                 const next = sortedHazards[(i + 1) % sortedHazards.length];
 
-                // Calculate gap (handle wrap-around at 360°)
                 let gap;
                 if (i === sortedHazards.length - 1) {
                     gap = (360 - current.angle) + next.angle;
@@ -546,21 +525,130 @@ export default class MainScene extends Phaser.Scene {
                     gap = next.angle - current.angle;
                 }
 
-                // Need at least 45° gap to safely enter/exit lane
                 if (gap >= 45) return true;
             }
 
             return false;
         });
 
-        // If no safe lanes exist, reduce hazard count slightly and regenerate
-        // This ensures the level is always beatable
+        // If no safe lanes exist, reduce hazard count
         if (safeLanes.length === 0 && generatedHazards.length > 2) {
-            // Remove last hazard and try again
             generatedHazards.pop();
         }
 
         return generatedHazards;
+    }
+
+    getLaneRadius(lane) {
+        if (lane === 'outer') return this.outerRadius;
+        if (lane === 'middle') return this.middleRadius;
+        return this.innerRadius;
+    }
+
+    applyPattern(patternName, rotationOffset, orbitLevel) {
+        const pattern = this.hazardPatterns[patternName];
+        const hazards = [];
+
+        pattern.forEach(template => {
+            // Apply rotation offset
+            let angle = (template.angleOffset + rotationOffset) % 360;
+            let lane = template.lane;
+
+            // Avoid powerup collision
+            if (this.activePowerup &&
+                this.activePowerup.angle === angle &&
+                this.activePowerup.lane === lane) {
+                // Shift to different lane
+                const lanes = ['inner', 'middle', 'outer'];
+                const safeLanes = lanes.filter(l => l !== lane);
+                lane = Phaser.Utils.Array.GetRandom(safeLanes);
+            }
+
+            hazards.push({
+                angle: angle,
+                lane: lane,
+                radius: this.getLaneRadius(lane),
+                color: Phaser.Utils.Array.GetRandom(this.hazardColors),
+                orbitLevel: orbitLevel,
+                spawned: false,
+                passed: false,
+                sprite: null
+            });
+        });
+
+        return hazards;
+    }
+
+    generateRandomHazard(existingHazards, orbitLevel) {
+        // All 16 discrete angular positions
+        const allAngles = [];
+        for (let i = 0; i < 16; i++) {
+            allAngles.push(i * 22.5);
+        }
+
+        const lanes = ['inner', 'middle', 'outer'];
+        const angleUsage = {};
+
+        // Count existing hazards at each angle
+        existingHazards.forEach(h => {
+            if (!angleUsage[h.angle]) angleUsage[h.angle] = [];
+            angleUsage[h.angle].push(h.lane);
+        });
+
+        // Minimum spacing based on level
+        let minSpacing;
+        if (orbitLevel <= 5) {
+            minSpacing = 67.5;
+        } else if (orbitLevel <= 15) {
+            minSpacing = 45;
+        } else {
+            minSpacing = 22.5;
+        }
+
+        // Find valid angles with spacing and max 2 per angle
+        const validAngles = allAngles.filter(testAngle => {
+            if (angleUsage[testAngle] && angleUsage[testAngle].length >= 2) return false;
+
+            for (let hazard of existingHazards) {
+                const diff = Math.min(
+                    Math.abs(testAngle - hazard.angle),
+                    360 - Math.abs(testAngle - hazard.angle)
+                );
+                if (diff < minSpacing && diff > 0) return false;
+            }
+            return true;
+        });
+
+        // Pick angle
+        let angle = validAngles.length > 0 ?
+            Phaser.Utils.Array.GetRandom(validAngles) :
+            Phaser.Utils.Array.GetRandom(allAngles);
+
+        // Pick available lane at this angle
+        let availableLanes = [...lanes];
+        if (angleUsage[angle]) {
+            availableLanes = lanes.filter(l => !angleUsage[angle].includes(l));
+        }
+
+        // Avoid powerup
+        if (this.activePowerup && this.activePowerup.angle === angle) {
+            availableLanes = availableLanes.filter(l => l !== this.activePowerup.lane);
+        }
+
+        const lane = availableLanes.length > 0 ?
+            Phaser.Utils.Array.GetRandom(availableLanes) :
+            Phaser.Utils.Array.GetRandom(lanes);
+
+        return {
+            angle: angle,
+            lane: lane,
+            radius: this.getLaneRadius(lane),
+            color: Phaser.Utils.Array.GetRandom(this.hazardColors),
+            orbitLevel: orbitLevel,
+            spawned: false,
+            passed: false,
+            sprite: null
+        };
     }
 
     spawnHazardSprite(hazard) {
