@@ -24,12 +24,14 @@ export default class MainScene extends Phaser.Scene {
         const viewportSizePercent = this.isMobile ? 0.95 : 0.75;
         const baseSize = Math.min(canvasWidth, canvasHeight) * viewportSizePercent;
 
-        // Set radii proportionally (maintaining 280:370 ratio)
+        // Set radii for 3 lanes
         this.outerRadius = baseSize / 2;
-        this.innerRadius = this.outerRadius * (280 / 370);
+        this.innerRadius = this.outerRadius * 0.6; // Inner lane at 60% of outer
+        this.middleRadius = (this.outerRadius + this.innerRadius) / 2; // Middle lane
 
         // Collision safety margin scales with roundabout size (1/3 of lane spacing)
-        this.collisionMargin = (this.outerRadius - this.innerRadius) / 3;
+        const laneSpacing = (this.outerRadius - this.innerRadius) / 2;
+        this.collisionMargin = laneSpacing / 3;
 
         // Game variables
         this.score = 0;
@@ -45,7 +47,7 @@ export default class MainScene extends Phaser.Scene {
         this.currentAngle = 0;
         this.baseRotationSpeed = 1; // degrees per frame
         this.rotationSpeed = this.baseRotationSpeed;
-        this.isOuterLane = true;
+        this.currentLane = 2; // 0=inner, 1=middle, 2=outer (start at outer)
         this.isTransitioning = false;
         this.transitionSpeed = 0.15;
 
@@ -131,12 +133,17 @@ export default class MainScene extends Phaser.Scene {
         this.roundaboutGraphics = this.add.graphics();
 
         // Center circle (darker center area)
+        const centerSize = this.innerRadius - (this.innerRadius * 0.3);
         this.roundaboutGraphics.fillStyle(0x1a1a2e, 0.6);
-        this.roundaboutGraphics.fillCircle(this.centerX, this.centerY, this.innerRadius - 60);
+        this.roundaboutGraphics.fillCircle(this.centerX, this.centerY, centerSize);
 
         // Inner lane circle (guideline) - thicker and brighter
         this.roundaboutGraphics.lineStyle(3, 0x4a90e2, 0.7);
         this.roundaboutGraphics.strokeCircle(this.centerX, this.centerY, this.innerRadius);
+
+        // Middle lane circle (guideline)
+        this.roundaboutGraphics.lineStyle(3, 0x4a90e2, 0.7);
+        this.roundaboutGraphics.strokeCircle(this.centerX, this.centerY, this.middleRadius);
 
         // Outer lane circle (guideline) - thicker and brighter
         this.roundaboutGraphics.lineStyle(3, 0x4a90e2, 0.7);
@@ -277,42 +284,96 @@ export default class MainScene extends Phaser.Scene {
     }
 
     setupInput() {
-        // Keyboard input - simple lane switch
-        this.input.keyboard.on('keydown-SPACE', () => {
+        // Keyboard input - A for left, D for right
+        this.input.keyboard.on('keydown-A', () => {
             if (this.gameOver) {
                 this.restartGame();
             } else {
-                this.switchLane();
+                this.moveLeft();
             }
         });
 
-        // Mobile button - simple lane switch
-        const mobileButton = document.getElementById('mobile-button');
-        if (mobileButton) {
-            // Store handler reference for proper cleanup
-            this.mobileInputHandler = (e) => {
+        this.input.keyboard.on('keydown-D', () => {
+            if (this.gameOver) {
+                this.restartGame();
+            } else {
+                this.moveRight();
+            }
+        });
+
+        // SPACE also restarts game when game over
+        this.input.keyboard.on('keydown-SPACE', () => {
+            if (this.gameOver) {
+                this.restartGame();
+            }
+        });
+
+        // Mobile buttons - left and right
+        const leftButton = document.getElementById('left-button');
+        const rightButton = document.getElementById('right-button');
+
+        if (leftButton) {
+            this.leftButtonHandler = (e) => {
                 e.preventDefault();
                 if (this.gameOver) {
                     this.restartGame();
                 } else {
-                    this.switchLane();
+                    this.moveLeft();
                 }
             };
 
-            // Remove any existing listeners before adding new ones
-            mobileButton.replaceWith(mobileButton.cloneNode(true));
-            const freshButton = document.getElementById('mobile-button');
+            leftButton.replaceWith(leftButton.cloneNode(true));
+            const freshLeftButton = document.getElementById('left-button');
+            freshLeftButton.addEventListener('touchstart', this.leftButtonHandler);
+            freshLeftButton.addEventListener('click', this.leftButtonHandler);
+        }
 
-            freshButton.addEventListener('touchstart', this.mobileInputHandler);
-            freshButton.addEventListener('click', this.mobileInputHandler);
+        if (rightButton) {
+            this.rightButtonHandler = (e) => {
+                e.preventDefault();
+                if (this.gameOver) {
+                    this.restartGame();
+                } else {
+                    this.moveRight();
+                }
+            };
+
+            rightButton.replaceWith(rightButton.cloneNode(true));
+            const freshRightButton = document.getElementById('right-button');
+            freshRightButton.addEventListener('touchstart', this.rightButtonHandler);
+            freshRightButton.addEventListener('click', this.rightButtonHandler);
         }
     }
 
-    switchLane() {
+    moveLeft() {
         if (this.gameOver) return;
 
-        this.isOuterLane = !this.isOuterLane;
-        this.targetRadius = this.isOuterLane ? this.outerRadius : this.innerRadius;
+        // Move to outer lane (0=inner, 1=middle, 2=outer)
+        if (this.currentLane < 2) {
+            this.currentLane++;
+            this.updateTargetRadius();
+        }
+    }
+
+    moveRight() {
+        if (this.gameOver) return;
+
+        // Move to inner lane
+        if (this.currentLane > 0) {
+            this.currentLane--;
+            this.updateTargetRadius();
+        }
+    }
+
+    updateTargetRadius() {
+        // Map lane index to radius
+        if (this.currentLane === 0) {
+            this.targetRadius = this.innerRadius;
+        } else if (this.currentLane === 1) {
+            this.targetRadius = this.middleRadius;
+        } else {
+            this.targetRadius = this.outerRadius;
+        }
         this.isTransitioning = true;
     }
 
@@ -339,25 +400,28 @@ export default class MainScene extends Phaser.Scene {
         let previousLane = null;
         let previousWasSameLane = false;
         const generatedHazards = [];
+        const lanes = ['inner', 'middle', 'outer'];
 
         selectedPositions.forEach((angle, index) => {
             let lane;
 
             if (orbitLevel === 1 && index === 0) {
-                // First hazard in first orbit - opposite of player's starting lane (outer)
-                lane = 'inner';
+                // First hazard in first orbit - not in player's starting lane (outer)
+                lane = Math.random() < 0.5 ? 'inner' : 'middle';
             } else if (index === 0) {
-                // First hazard in other orbits - random 50/50
-                lane = Math.random() < 0.5 ? 'inner' : 'outer';
+                // First hazard in other orbits - random from all 3 lanes
+                lane = Phaser.Utils.Array.GetRandom(lanes);
             } else if (previousWasSameLane) {
-                // Previous hazard was in same lane as the one before it - force opposite
-                lane = previousLane === 'inner' ? 'outer' : 'inner';
+                // Previous hazard was in same lane as the one before it - force different
+                const availableLanes = lanes.filter(l => l !== previousLane);
+                lane = Phaser.Utils.Array.GetRandom(availableLanes);
             } else {
-                // 50% chance same lane, 50% chance opposite lane
+                // 50% chance same lane, 50% chance different lane
                 if (Math.random() < 0.5) {
                     lane = previousLane; // Same
                 } else {
-                    lane = previousLane === 'inner' ? 'outer' : 'inner'; // Opposite
+                    const availableLanes = lanes.filter(l => l !== previousLane);
+                    lane = Phaser.Utils.Array.GetRandom(availableLanes);
                 }
             }
 
@@ -366,7 +430,14 @@ export default class MainScene extends Phaser.Scene {
             previousLane = lane;
 
             const hazardColor = Phaser.Utils.Array.GetRandom(this.hazardColors);
-            const radius = lane === 'outer' ? this.outerRadius : this.innerRadius;
+            let radius;
+            if (lane === 'outer') {
+                radius = this.outerRadius;
+            } else if (lane === 'middle') {
+                radius = this.middleRadius;
+            } else {
+                radius = this.innerRadius;
+            }
 
             const hazard = {
                 angle: angle,
@@ -462,9 +533,17 @@ export default class MainScene extends Phaser.Scene {
         // Pick random available angle
         const angle = Phaser.Utils.Array.GetRandom(availableAngles);
 
-        // Choose lane (50/50)
-        const lane = Math.random() < 0.5 ? 'inner' : 'outer';
-        const radius = lane === 'outer' ? this.outerRadius : this.innerRadius;
+        // Choose lane (random from 3 lanes)
+        const lanes = ['inner', 'middle', 'outer'];
+        const lane = Phaser.Utils.Array.GetRandom(lanes);
+        let radius;
+        if (lane === 'outer') {
+            radius = this.outerRadius;
+        } else if (lane === 'middle') {
+            radius = this.middleRadius;
+        } else {
+            radius = this.innerRadius;
+        }
 
         // Calculate position
         const rad = Phaser.Math.DegToRad(angle);
@@ -1058,13 +1137,21 @@ export default class MainScene extends Phaser.Scene {
         const baseSize = Math.min(gameSize.width, gameSize.height) * viewportSizePercent;
 
         this.outerRadius = baseSize / 2;
-        this.innerRadius = this.outerRadius * (280 / 370);
+        this.innerRadius = this.outerRadius * 0.6;
+        this.middleRadius = (this.outerRadius + this.innerRadius) / 2;
 
         // Update collision margin (scales with roundabout)
-        this.collisionMargin = (this.outerRadius - this.innerRadius) / 3;
+        const laneSpacing = (this.outerRadius - this.innerRadius) / 2;
+        this.collisionMargin = laneSpacing / 3;
 
-        // Update player target radii
-        this.targetRadius = this.isOuterLane ? this.outerRadius : this.innerRadius;
+        // Update player target radius based on current lane
+        if (this.currentLane === 0) {
+            this.targetRadius = this.innerRadius;
+        } else if (this.currentLane === 1) {
+            this.targetRadius = this.middleRadius;
+        } else {
+            this.targetRadius = this.outerRadius;
+        }
 
         // Update UI positions
         if (this.levelText) {
@@ -1091,7 +1178,13 @@ export default class MainScene extends Phaser.Scene {
         this.hazards.forEach(hazard => {
             if (hazard.spawned && hazard.sprite) {
                 // Recalculate hazard radius based on new radii
-                hazard.radius = hazard.lane === 'outer' ? this.outerRadius : this.innerRadius;
+                if (hazard.lane === 'outer') {
+                    hazard.radius = this.outerRadius;
+                } else if (hazard.lane === 'middle') {
+                    hazard.radius = this.middleRadius;
+                } else {
+                    hazard.radius = this.innerRadius;
+                }
 
                 const rad = Phaser.Math.DegToRad(hazard.angle);
                 const x = this.centerX + Math.cos(rad) * hazard.radius;
@@ -1105,7 +1198,13 @@ export default class MainScene extends Phaser.Scene {
         // Update powerup position if it exists
         if (this.activePowerup && this.activePowerup.sprite) {
             // Recalculate powerup radius based on new radii
-            this.activePowerup.radius = this.activePowerup.lane === 'outer' ? this.outerRadius : this.innerRadius;
+            if (this.activePowerup.lane === 'outer') {
+                this.activePowerup.radius = this.outerRadius;
+            } else if (this.activePowerup.lane === 'middle') {
+                this.activePowerup.radius = this.middleRadius;
+            } else {
+                this.activePowerup.radius = this.innerRadius;
+            }
 
             const rad = Phaser.Math.DegToRad(this.activePowerup.angle);
             const x = this.centerX + Math.cos(rad) * this.activePowerup.radius;

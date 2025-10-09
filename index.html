@@ -33,14 +33,12 @@
             height: 100% !important;
         }
 
-        #mobile-button {
+        .mobile-button {
             display: none;
             position: fixed;
             bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100px;
-            height: 100px;
+            width: 90px;
+            height: 90px;
             background: rgba(255, 255, 255, 0.2);
             border: 4px solid rgba(255, 255, 255, 0.6);
             border-radius: 50%;
@@ -54,13 +52,27 @@
             backdrop-filter: blur(10px);
         }
 
-        #mobile-button:active {
+        #left-button {
+            left: 20%;
+            transform: translateX(-50%);
+        }
+
+        #right-button {
+            right: 20%;
+            transform: translateX(50%);
+        }
+
+        .mobile-button:active {
             background: rgba(255, 255, 255, 0.4);
             transform: translateX(-50%) scale(0.95);
         }
 
+        #right-button:active {
+            transform: translateX(50%) scale(0.95);
+        }
+
         @media (max-width: 768px), (hover: none) {
-            #mobile-button {
+            .mobile-button {
                 display: block;
             }
         }
@@ -70,7 +82,8 @@
     <div id="game-container">
         <div id="game"></div>
     </div>
-    <button id="mobile-button">SWITCH<br>LANE</button>
+    <button id="left-button" class="mobile-button">◄<br>OUTER</button>
+    <button id="right-button" class="mobile-button">INNER<br>►</button>
 
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
     <script type="module" src="src/game.js"></script>
