@@ -502,12 +502,14 @@ export default class MainScene extends Phaser.Scene {
 
         for (let i = 0; i < randomCount; i++) {
             const randomHazard = this.generateRandomHazard(generatedHazards, orbitLevel);
-            generatedHazards.push(randomHazard);
+            if (randomHazard !== null) {  // Only add if not null
+                generatedHazards.push(randomHazard);
+            }
         }
 
         // Step 6: Safe path verification
         const lanes = ['inner', 'middle', 'outer'];
-        const safeLanes = lanes.filter(checkLane => {
+        let safeLanes = lanes.filter(checkLane => {
             const hazardsInLane = generatedHazards.filter(h => h.lane === checkLane);
 
             if (hazardsInLane.length === 0) return true;
@@ -531,9 +533,26 @@ export default class MainScene extends Phaser.Scene {
             return false;
         });
 
-        // If no safe lanes exist, reduce hazard count
-        if (safeLanes.length === 0 && generatedHazards.length > 2) {
+        // Keep removing hazards until at least one lane is safe
+        while (safeLanes.length === 0 && generatedHazards.length > 2) {
             generatedHazards.pop();
+
+            // Re-check safe lanes after removal
+            safeLanes = lanes.filter(checkLane => {
+                const hazardsInLane = generatedHazards.filter(h => h.lane === checkLane);
+                if (hazardsInLane.length === 0) return true;
+
+                const sortedHazards = [...hazardsInLane].sort((a, b) => a.angle - b.angle);
+                for (let i = 0; i < sortedHazards.length; i++) {
+                    const current = sortedHazards[i];
+                    const next = sortedHazards[(i + 1) % sortedHazards.length];
+                    const gap = i === sortedHazards.length - 1
+                        ? (360 - current.angle) + next.angle
+                        : next.angle - current.angle;
+                    if (gap >= 45) return true;
+                }
+                return false;
+            });
         }
 
         return generatedHazards;
@@ -548,21 +567,34 @@ export default class MainScene extends Phaser.Scene {
     applyPattern(patternName, rotationOffset, orbitLevel) {
         const pattern = this.hazardPatterns[patternName];
         const hazards = [];
+        const angleUsage = {}; // Track lanes used at each angle
 
         pattern.forEach(template => {
             // Apply rotation offset
             let angle = (template.angleOffset + rotationOffset) % 360;
             let lane = template.lane;
 
+            // Initialize angle tracking
+            if (!angleUsage[angle]) angleUsage[angle] = [];
+
             // Avoid powerup collision
             if (this.activePowerup &&
                 this.activePowerup.angle === angle &&
                 this.activePowerup.lane === lane) {
-                // Shift to different lane
+                // Get lanes NOT used at this angle and NOT the powerup lane
                 const lanes = ['inner', 'middle', 'outer'];
-                const safeLanes = lanes.filter(l => l !== lane);
-                lane = Phaser.Utils.Array.GetRandom(safeLanes);
+                const availableLanes = lanes.filter(l =>
+                    l !== lane && !angleUsage[angle].includes(l)
+                );
+
+                if (availableLanes.length > 0) {
+                    lane = Phaser.Utils.Array.GetRandom(availableLanes);
+                }
+                // If no available lanes, keep original (will hit powerup but that's OK)
             }
+
+            // Track this lane usage
+            angleUsage[angle].push(lane);
 
             hazards.push({
                 angle: angle,
@@ -620,9 +652,22 @@ export default class MainScene extends Phaser.Scene {
         });
 
         // Pick angle
-        let angle = validAngles.length > 0 ?
-            Phaser.Utils.Array.GetRandom(validAngles) :
-            Phaser.Utils.Array.GetRandom(allAngles);
+        let angle;
+        if (validAngles.length > 0) {
+            angle = Phaser.Utils.Array.GetRandom(validAngles);
+        } else {
+            // No valid angles - must pick angle with room for another hazard
+            const anglesWithRoom = allAngles.filter(a =>
+                !angleUsage[a] || angleUsage[a].length < 2
+            );
+
+            if (anglesWithRoom.length === 0) {
+                // Absolutely no room - skip this random hazard
+                return null;
+            }
+
+            angle = Phaser.Utils.Array.GetRandom(anglesWithRoom);
+        }
 
         // Pick available lane at this angle
         let availableLanes = [...lanes];
@@ -635,9 +680,12 @@ export default class MainScene extends Phaser.Scene {
             availableLanes = availableLanes.filter(l => l !== this.activePowerup.lane);
         }
 
-        const lane = availableLanes.length > 0 ?
-            Phaser.Utils.Array.GetRandom(availableLanes) :
-            Phaser.Utils.Array.GetRandom(lanes);
+        // Safety check: if no lanes available, skip this hazard
+        if (availableLanes.length === 0) {
+            return null;
+        }
+
+        const lane = Phaser.Utils.Array.GetRandom(availableLanes);
 
         return {
             angle: angle,
