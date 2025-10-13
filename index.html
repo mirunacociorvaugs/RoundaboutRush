@@ -4,86 +4,103 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>ROUNDABOUT RUSH</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            background: #1a1a2e;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            font-family: 'Arial', sans-serif;
-            overflow: hidden;
-        }
-
-        #game-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-        }
-
-        canvas {
-            display: block;
-            width: 100% !important;
-            height: 100% !important;
-        }
-
-        .mobile-button {
-            display: none;
-            position: fixed;
-            bottom: 40px;
-            width: 90px;
-            height: 90px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 4px solid rgba(255, 255, 255, 0.6);
-            border-radius: 50%;
-            font-size: 16px;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            touch-action: manipulation;
-            user-select: none;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-        }
-
-        #left-button {
-            left: 20%;
-            transform: translateX(-50%);
-        }
-
-        #right-button {
-            right: 20%;
-            transform: translateX(50%);
-        }
-
-        .mobile-button:active {
-            background: rgba(255, 255, 255, 0.4);
-            transform: translateX(-50%) scale(0.95);
-        }
-
-        #right-button:active {
-            transform: translateX(50%) scale(0.95);
-        }
-
-        @media (max-width: 768px), (hover: none) {
-            .mobile-button {
-                display: block;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="game-container">
+    <div id="game-container" class="ready">
+        <!-- Game Canvas -->
         <div id="game"></div>
+
+        <!-- Start Screen -->
+        <div class="game-ready">
+            <h1 class="game-title">ROUNDABOUT RUSH</h1>
+            <button id="start-button">START</button>
+        </div>
+
+        <!-- Corner Buttons (visible in ready and ended states) -->
+        <button id="instructions-btn" class="corner-button left-bottom">
+            <svg viewBox="0 0 24 24" fill="white">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+                <path d="M8 12h8v2H8zm0 4h8v2H8zm0-8h5v2H8z"/>
+            </svg>
+        </button>
+        <button id="prizes-btn" class="corner-button bottom-center">
+            <svg viewBox="0 0 24 24" fill="white">
+                <circle cx="12" cy="15" r="5" stroke="white" stroke-width="1.5" fill="none"/>
+                <path d="M12 10 L12 4 M9 4 L9 9 L12 10 L15 9 L15 4 M9 4 L15 4" stroke="white" stroke-width="1.5" fill="none"/>
+                <path d="M8 18 L8 22 L16 22 L16 18" stroke="white" stroke-width="1.5"/>
+                <circle cx="12" cy="15" r="2" fill="white"/>
+            </svg>
+        </button>
+        <button id="leaderboard-btn" class="corner-button right-bottom">
+            <svg viewBox="0 0 24 24" fill="white">
+                <path d="M7 3v2H5v3c0 2.21 1.79 4 4 4v2H7v7h10v-7h-2v-2c2.21 0 4-1.79 4-4V5h-2V3H7zm10 2v3c0 1.1-.9 2-2 2h-1V8h1c.55 0 1-.45 1-1V5h1zM9 5v2c0 .55.45 1 1 1h1v2H10c-1.1 0-2-.9-2-2V5h1zm3 14v-4h4v4h-4z"/>
+            </svg>
+        </button>
+
+        <!-- Mobile Control Buttons -->
+        <button id="left-button" class="mobile-button">◄<br>OUTER</button>
+        <button id="right-button" class="mobile-button">INNER<br>►</button>
     </div>
-    <button id="left-button" class="mobile-button">◄<br>OUTER</button>
-    <button id="right-button" class="mobile-button">INNER<br>►</button>
+
+    <!-- Instructions Modal -->
+    <div id="instructions-screen" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="close-button" id="close-instructions">×</button>
+            <h1>How to Play</h1>
+            <div class="instructions-content">
+                <p><strong>Controls:</strong></p>
+                <ul>
+                    <li>Press <strong>A</strong> to move to outer lane</li>
+                    <li>Press <strong>D</strong> to move to inner lane</li>
+                    <li>On mobile: Tap the left/right buttons</li>
+                </ul>
+                <p><strong>Objective:</strong></p>
+                <p>Navigate through the roundabout and avoid obstacles. Your scooter automatically rotates around the center. Switch between three lanes to dodge hazards and survive as long as possible!</p>
+                <p><strong>Scoring:</strong></p>
+                <ul>
+                    <li>Earn points for each obstacle you pass</li>
+                    <li>The game gets faster as your level increases</li>
+                    <li>Collect powerups for special abilities</li>
+                </ul>
+                <p><strong>Powerups:</strong></p>
+                <ul>
+                    <li><strong>Snail</strong>: Slows down the game speed</li>
+                    <li><strong>Shield</strong>: Grants temporary invincibility</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-screen" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="close-button" id="close-leaderboard">×</button>
+            <h1>Leaderboard</h1>
+            <div class="leaderboard-content">
+                <ul id="leaderboard-list">
+                    <li>Loading...</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prizes Modal -->
+    <div id="prizes-screen" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="close-button" id="close-prizes">×</button>
+            <h1>Prizes</h1>
+            <div class="prizes-content">
+                <p><strong>Compete for amazing prizes!</strong></p>
+                <ul>
+                    <li>1st Place: €200 Prize</li>
+                    <li>2nd Place: €100 Prize</li>
+                    <li>3rd Place: €50 Prize</li>
+                </ul>
+                <p>Play the game, earn points, and climb the leaderboard to win!</p>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
     <script type="module" src="src/game.js"></script>

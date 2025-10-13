@@ -1,6 +1,7 @@
 export default class MainScene extends Phaser.Scene {
     constructor() {
         super({ key: 'MainScene' });
+        this.gameStarted = false;
     }
 
     preload() {
@@ -1305,6 +1306,14 @@ export default class MainScene extends Phaser.Scene {
 
         this.gameOver = true;
 
+        // Update container state for UI
+        const container = document.getElementById('game-container');
+        container.classList.remove('playing');
+        container.classList.add('ended');
+
+        // Submit score to JTI SDK
+        this.submitScoreToJTI();
+
         // Show game over screen
         this.finalScoreText.setText('Final Score: ' + this.score);
         this.highScoreText.setText('High Score: ' + this.highScore);
@@ -1320,12 +1329,54 @@ export default class MainScene extends Phaser.Scene {
         });
     }
 
+    async submitScoreToJTI() {
+        try {
+            // Import JTI SDK from the correct path
+            const { JtiExtension } = await import('./game.js');
+
+            if (!JtiExtension) {
+                console.warn('JTI SDK not available');
+                return;
+            }
+
+            // Submit score and get ranking in one call
+            const response = await JtiExtension.setResultAndGetRanking({
+                normalizedPoints: Math.min(this.score / 1000, 1), // Normalize to 0-1 range
+                displayScore: this.score // Actual score to display
+            }, {
+                limit: 10,
+                timeRange: "all-time"
+            });
+
+            console.log('Score submitted successfully:', response);
+
+        } catch (error) {
+            console.error('Error submitting score:', error);
+        }
+    }
+
+    startGame() {
+        // Called when user clicks START button
+        this.gameStarted = true;
+        // Game will now respond to update loop
+    }
+
     restartGame() {
+        // Reset game state
+        this.gameStarted = false;
+
+        // Update container state
+        const container = document.getElementById('game-container');
+        container.classList.remove('playing');
+        container.classList.remove('ended');
+        container.classList.add('ready');
+
+        // Restart the scene
         this.scene.restart();
     }
 
     update() {
-        if (this.gameOver) return;
+        if (this.gameOver || !this.gameStarted) return;
 
         // Auto-rotate scooter
         this.currentAngle += this.rotationSpeed;

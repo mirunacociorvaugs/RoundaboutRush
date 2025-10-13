@@ -1,0 +1,602 @@
+@font-face {
+  font-family: "Astoria-Medium";
+  src: url("./font/astoria-medium.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Bitblox Embiggened';
+  src: url('./font/Bitblox-Embiggened.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #1a1a2e;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: "Astoria-Medium", sans-serif;
+  overflow: hidden;
+}
+
+#game-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  transition: filter 0.5s ease;
+}
+
+/* Game states - blur canvas when not playing */
+#game-container.ready canvas,
+#game-container.ended canvas {
+  filter: blur(10px);
+}
+
+#game-container.playing canvas {
+  filter: blur(0px);
+}
+
+/* Mobile buttons */
+.mobile-button {
+  display: none;
+  position: fixed;
+  bottom: 40px;
+  width: 90px;
+  height: 90px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 4px solid rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  font-size: 16px;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+#left-button {
+  left: 20%;
+  transform: translateX(-50%);
+}
+
+#right-button {
+  right: 20%;
+  transform: translateX(50%);
+}
+
+.mobile-button:active {
+  background: rgba(255, 255, 255, 0.4);
+  transform: translateX(-50%) scale(0.95);
+}
+
+#right-button:active {
+  transform: translateX(50%) scale(0.95);
+}
+
+@media (max-width: 768px), (hover: none) {
+  .mobile-button {
+    display: block;
+  }
+}
+
+/* Start screen */
+.game-ready {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  pointer-events: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+#game-container.ready .game-ready {
+  display: flex;
+  pointer-events: all;
+}
+
+.game-title {
+  font-size: 8vh;
+  color: #00bcd4;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 4vh;
+  font-family: 'Bitblox Embiggened', sans-serif;
+  text-shadow: 0 0 20px rgba(0, 188, 212, 0.5),
+               0 0 40px rgba(0, 188, 212, 0.3);
+}
+
+#start-button {
+  padding: 1.5vh 3vw;
+  font-size: 5vh;
+  font-weight: bold;
+  background-color: #00bcd4;
+  color: #ffffff;
+  border: 3px solid #000000;
+  border-radius: 0;
+  cursor: pointer;
+  font-family: 'Bitblox Embiggened', sans-serif;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  box-shadow: inset 2px 2px 0px #4dffff, inset -2px -2px 0px #0097a7;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+#start-button:hover {
+  background-color: #0097a7;
+  box-shadow: inset 2px 2px 0px #00bcd4, inset -2px -2px 0px #000000;
+  transform: translate(1px, 1px);
+}
+
+#start-button:active {
+  box-shadow: inset -1px -1px 0px #4dffff, inset 1px 1px 0px #0097a7;
+  transform: translate(2px, 2px);
+}
+
+/* Corner buttons */
+.corner-button {
+  position: fixed;
+  background: rgba(0, 188, 212, 0.2);
+  border: 3px solid #00bcd4;
+  border-radius: 0;
+  width: 60px;
+  height: 60px;
+  cursor: pointer;
+  z-index: 150;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+  box-shadow: inset 2px 2px 0px rgba(77, 255, 255, 0.3), inset -2px -2px 0px rgba(0, 151, 167, 0.3);
+}
+
+.corner-button svg {
+  width: 30px;
+  height: 30px;
+  fill: white;
+}
+
+.corner-button:hover {
+  background: rgba(0, 188, 212, 0.4);
+  border-color: #4dffff;
+  box-shadow: inset 2px 2px 0px rgba(77, 255, 255, 0.5), inset -2px -2px 0px rgba(0, 0, 0, 0.3);
+  transform: translate(1px, 1px);
+}
+
+.corner-button:active {
+  box-shadow: inset -1px -1px 0px rgba(77, 255, 255, 0.3), inset 1px 1px 0px rgba(0, 151, 167, 0.3);
+  transform: translate(2px, 2px);
+}
+
+#game-container.ready .corner-button,
+#game-container.ended .corner-button {
+  display: flex;
+}
+
+.left-bottom {
+  bottom: 20px;
+  left: 20px;
+}
+
+.bottom-center {
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.bottom-center:hover {
+  transform: translateX(-50%) translate(1px, 1px);
+}
+
+.bottom-center:active {
+  transform: translateX(-50%) translate(2px, 2px);
+}
+
+.right-bottom {
+  bottom: 20px;
+  right: 20px;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal-overlay.hidden {
+  display: none !important;
+}
+
+.modal-content {
+  text-align: center;
+  background-color: #00bcd4;
+  padding: 20px;
+  border: 4px solid #000000;
+  border-radius: 0;
+  width: 70vw;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  color: #ffffff;
+  box-shadow: inset 2px 2px 0px #4dffff, inset -2px -2px 0px #0097a7;
+  position: relative;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  font-family: 'Bitblox Embiggened', sans-serif;
+}
+
+.modal-content h1 {
+  font-size: 2rem;
+  margin-bottom: 20px;
+  color: #ffffff;
+  font-family: 'Bitblox Embiggened', sans-serif;
+  font-weight: bold;
+}
+
+.modal-content p,
+.modal-content ul li {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #ffffff;
+  margin: 10px 0;
+  font-family: 'Astoria-Medium', sans-serif;
+}
+
+.modal-content ul {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0;
+}
+
+.modal-content ul li {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 2px solid #ffffff;
+  border-radius: 0;
+}
+
+/* Close button styles */
+.close-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: #FFD700;
+  color: #000000;
+  border: 3px solid #000000;
+  border-radius: 0;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  font-family: 'Bitblox Embiggened', sans-serif;
+  transition: all 0.2s ease;
+  transform: scale(1);
+  box-shadow: inset 2px 2px 0px #FFFF00, inset -2px -2px 0px #B8860B;
+}
+
+.close-button:hover {
+  background: #FFFF00;
+  color: #000000;
+  box-shadow: inset 2px 2px 0px #FFD700, inset -2px -2px 0px #000000;
+  transform: translate(1px, 1px);
+}
+
+.close-button:active {
+  box-shadow: inset -1px -1px 0px #FFFF00, inset 1px 1px 0px #B8860B;
+  transform: translate(2px, 2px);
+}
+
+/* Instructions specific */
+.instructions-content {
+  text-align: left;
+}
+
+.instructions-content p {
+  margin-bottom: 15px;
+  font-family: 'Astoria-Medium', sans-serif;
+}
+
+.instructions-content ul {
+  text-align: left;
+}
+
+/* Leaderboard specific */
+.leaderboard-content {
+  min-height: 300px;
+}
+
+#leaderboard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  font-family: 'Bitblox Embiggened', sans-serif;
+  font-weight: bold;
+  max-height: 50vh;
+  overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#leaderboard-list li {
+  list-style: none;
+  padding: 0;
+  width: 100%;
+  margin-bottom: 4px;
+  box-sizing: border-box;
+}
+
+.entry-bar {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  display: block;
+  background: rgba(0, 0, 0, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0;
+  padding: 8px 12px;
+  font-family: 'Bitblox Embiggened', sans-serif;
+  color: #ffffff;
+  transition: all 0.2s ease;
+  box-shadow: inset 1px 1px 0 rgba(77, 255, 255, 0.2), inset -1px -1px 0 rgba(0, 0, 0, 0.3);
+  box-sizing: border-box;
+}
+
+.entry-bar:hover {
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translate(1px, 1px);
+}
+
+.bar-content {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.bar-content .rank {
+  font-weight: bold;
+  font-size: 1.3em;
+  color: #FFD700;
+  text-align: left;
+  min-width: 35px;
+  max-width: 35px;
+  flex-shrink: 0;
+}
+
+.bar-content .name {
+  font-weight: normal;
+  font-size: 1.2em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+}
+
+.bar-content .score {
+  font-weight: bold;
+  font-size: 1.2em;
+  color: #90EE90;
+  text-align: right;
+  min-width: 60px;
+  max-width: 80px;
+  flex-shrink: 0;
+}
+
+/* Top 3 special styling */
+#leaderboard-list li:nth-child(1) .entry-bar {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 215, 0, 0.1));
+  border-color: #FFD700;
+}
+
+#leaderboard-list li:nth-child(2) .entry-bar {
+  background: linear-gradient(135deg, rgba(192, 192, 192, 0.3), rgba(192, 192, 192, 0.1));
+  border-color: #C0C0C0;
+}
+
+#leaderboard-list li:nth-child(3) .entry-bar {
+  background: linear-gradient(135deg, rgba(205, 127, 50, 0.3), rgba(205, 127, 50, 0.1));
+  border-color: #CD7F32;
+}
+
+/* Current user highlight */
+.entry-bar.current-user {
+  background: linear-gradient(135deg, rgba(0, 188, 212, 0.4), rgba(0, 188, 212, 0.2));
+  border-color: #4dffff;
+  border-width: 3px;
+}
+
+.separator {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 1.5rem;
+  padding: 10px;
+}
+
+/* Prizes content */
+.prizes-content {
+  text-align: left;
+}
+
+.prizes-content p {
+  text-align: center;
+  margin-bottom: 15px;
+  font-family: 'Bitblox Embiggened', sans-serif;
+  font-weight: bold;
+  font-size: 1.2em;
+}
+
+.prizes-content ul {
+  list-style: disc;
+  margin-left: 30px;
+  margin-top: 15px;
+  text-align: left;
+}
+
+.prizes-content li {
+  margin-bottom: 10px;
+  font-family: 'Astoria-Medium', sans-serif;
+}
+
+/* Mobile responsive */
+@media (max-width: 700px) {
+  .game-title {
+    font-size: 6vh;
+  }
+
+  #start-button {
+    padding: 15px 40px;
+    font-size: 3vh;
+  }
+
+  .corner-button {
+    width: 50px;
+    height: 50px;
+  }
+
+  .corner-button svg {
+    width: 25px;
+    height: 25px;
+  }
+
+  .modal-content {
+    width: 90vw;
+    padding: 15px;
+  }
+
+  .modal-content h1 {
+    font-size: 1.8rem;
+  }
+
+  .modal-content p,
+  .modal-content ul li {
+    font-size: 0.9rem;
+  }
+
+  .entry-bar {
+    padding: 6px 8px;
+  }
+
+  .bar-content {
+    gap: 6px;
+  }
+
+  .bar-content .rank {
+    font-size: 1.1em;
+    min-width: 30px;
+    max-width: 30px;
+  }
+
+  .bar-content .name {
+    font-size: 1em;
+  }
+
+  .bar-content .score {
+    font-size: 1em;
+    min-width: 50px;
+    max-width: 65px;
+  }
+}
+
+@media (max-width: 400px) {
+  .game-title {
+    font-size: 5vh;
+  }
+
+  #start-button {
+    padding: 12px 30px;
+    font-size: 2.5vh;
+  }
+
+  .corner-button {
+    bottom: 15px;
+  }
+
+  .left-bottom {
+    left: 15px;
+  }
+
+  .right-bottom {
+    right: 15px;
+  }
+
+  .modal-content h1 {
+    font-size: 1.5rem;
+  }
+
+  .entry-bar {
+    padding: 4px 6px;
+  }
+
+  .bar-content {
+    gap: 4px;
+  }
+
+  .bar-content .rank {
+    font-size: 1em;
+    min-width: 25px;
+    max-width: 25px;
+  }
+
+  .bar-content .name {
+    font-size: 0.9em;
+  }
+
+  .bar-content .score {
+    font-size: 0.9em;
+    min-width: 45px;
+    max-width: 60px;
+  }
+}
