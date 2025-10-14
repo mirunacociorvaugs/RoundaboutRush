@@ -120,6 +120,70 @@ canvas {
   pointer-events: all;
 }
 
+/* Game over screen */
+.game-ended {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  pointer-events: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+#game-container.ended .game-ended {
+  display: flex;
+  pointer-events: all;
+}
+
+.game-over-score {
+  font-size: 6vh;
+  color: #ffcc00;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 4vh;
+  font-family: 'Bitblox Embiggened', sans-serif;
+  text-shadow: 0 0 20px rgba(255, 204, 0, 0.5),
+               0 0 40px rgba(255, 204, 0, 0.3);
+}
+
+#restart-button {
+  padding: 1.5vh 3vw;
+  font-size: 5vh;
+  font-weight: bold;
+  background-color: #00bcd4;
+  color: #ffffff;
+  border: 3px solid #000000;
+  border-radius: 0;
+  cursor: pointer;
+  font-family: 'Bitblox Embiggened', sans-serif;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  box-shadow: inset 2px 2px 0px #4dffff, inset -2px -2px 0px #0097a7;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+#restart-button:hover {
+  background-color: #0097a7;
+  box-shadow: inset 2px 2px 0px #00bcd4, inset -2px -2px 0px #000000;
+  transform: translate(1px, 1px);
+}
+
+#restart-button:active {
+  box-shadow: inset -1px -1px 0px #4dffff, inset 1px 1px 0px #0097a7;
+  transform: translate(2px, 2px);
+}
+
 .game-title {
   font-size: 8vh;
   color: #00bcd4;
@@ -501,6 +565,15 @@ canvas {
     font-size: 3vh;
   }
 
+  #restart-button {
+    padding: 15px 40px;
+    font-size: 3vh;
+  }
+
+  .game-over-score {
+    font-size: 4.5vh;
+  }
+
   .corner-button {
     width: 50px;
     height: 50px;
@@ -558,6 +631,15 @@ canvas {
   #start-button {
     padding: 12px 30px;
     font-size: 2.5vh;
+  }
+
+  #restart-button {
+    padding: 12px 30px;
+    font-size: 2.5vh;
+  }
+
+  .game-over-score {
+    font-size: 3.5vh;
   }
 
   .corner-button {

@@ -52,6 +52,18 @@ function setupUIHandlers() {
         });
     }
 
+    // Restart button
+    const restartButton = document.getElementById('restart-button');
+    if (restartButton) {
+        restartButton.addEventListener('click', () => {
+            // Notify MainScene to restart
+            const scene = game.scene.getScene('MainScene');
+            if (scene && scene.restartGame) {
+                scene.restartGame();
+            }
+        });
+    }
+
     // Instructions button
     const instructionsBtn = document.getElementById('instructions-btn');
     const closeInstructions = document.getElementById('close-instructions');

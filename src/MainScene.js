@@ -226,62 +226,6 @@ export default class MainScene extends Phaser.Scene {
             strokeThickness: 3
         }).setOrigin(1, 0);
         this.levelText.setDepth(100);  // Always on top
-
-        // Game over overlay (hidden initially)
-        this.gameOverContainer = this.add.container(this.centerX, this.centerY);
-        this.gameOverContainer.setAlpha(0);
-        this.gameOverContainer.setDepth(1000);  // Always render above everything
-
-        // Responsive font sizes based on screen size
-        const screenSize = Math.min(this.scale.width, this.scale.height);
-        const titleSize = Math.floor(screenSize * 0.12) + 'px';
-        const scoreSize = Math.floor(screenSize * 0.06) + 'px';
-        const textSize = Math.floor(screenSize * 0.045) + 'px';
-        const smallSize = Math.floor(screenSize * 0.035) + 'px';
-
-        // Responsive vertical spacing
-        const spacing = screenSize * 0.08;
-
-        const overlay = this.add.rectangle(0, 0, this.scale.width * 2, this.scale.height * 2, 0x000000, 0.8);
-        const gameOverText = this.add.text(0, -spacing * 1.5, 'GAME OVER', {
-            fontSize: titleSize,
-            fill: '#fff',
-            fontFamily: 'Arial',
-            fontStyle: 'bold',
-            stroke: '#ff0000',
-            strokeThickness: 4
-        }).setOrigin(0.5);
-
-        this.finalScoreText = this.add.text(0, -spacing * 0.3, '', {
-            fontSize: scoreSize,
-            fill: '#ffcc00',
-            fontFamily: 'Arial',
-            fontStyle: 'bold'
-        }).setOrigin(0.5);
-
-        this.highScoreText = this.add.text(0, spacing * 0.4, '', {
-            fontSize: textSize,
-            fill: '#fff',
-            fontFamily: 'Arial'
-        }).setOrigin(0.5);
-
-        this.newRecordText = this.add.text(0, spacing * 1.1, 'NEW RECORD!', {
-            fontSize: textSize,
-            fill: '#00ff00',
-            fontFamily: 'Arial',
-            fontStyle: 'bold',
-            stroke: '#004400',
-            strokeThickness: 3
-        }).setOrigin(0.5).setAlpha(0);
-
-        const restartText = this.add.text(0, spacing * 2, 'Press SPACE or TAP to restart', {
-            fontSize: smallSize,
-            fill: '#aaa',
-            fontFamily: 'Arial'
-        }).setOrigin(0.5);
-
-        this.gameOverContainer.add([overlay, gameOverText, this.finalScoreText,
-                                     this.highScoreText, this.newRecordText, restartText]);
     }
 
     setupInput() {
@@ -516,6 +460,11 @@ export default class MainScene extends Phaser.Scene {
         // Collect all available danger positions (angle + lane pairs)
         const availableDangerPositions = [];
         for (const angle of allAngles) {
+            // TUTORIAL ZONE: Keep first quarter clear on level 1 so players can learn controls
+            if (orbitLevel === 1 && angle < 90) {
+                continue; // Skip angles 0°, 22.5°, 45°, 67.5° on first level
+            }
+
             const safeLanesAtAngle = safePath[angle];
 
             // Get lanes that are NOT safe (can place hazards here)
@@ -1177,19 +1126,11 @@ export default class MainScene extends Phaser.Scene {
         // Submit score to JTI SDK
         this.submitScoreToJTI();
 
-        // Show game over screen
-        this.finalScoreText.setText('Final Score: ' + this.score);
-        this.highScoreText.setText('High Score: ' + this.highScore);
-
-        if (this.score >= this.highScore && this.score > 0) {
-            this.newRecordText.setAlpha(1);
+        // Update DOM game over screen with final score
+        const gameOverScore = document.getElementById('game-over-score');
+        if (gameOverScore) {
+            gameOverScore.textContent = 'SCORE: ' + this.score;
         }
-
-        this.tweens.add({
-            targets: this.gameOverContainer,
-            alpha: 1,
-            duration: 500
-        });
     }
 
     async submitScoreToJTI() {
@@ -1225,17 +1166,19 @@ export default class MainScene extends Phaser.Scene {
     }
 
     restartGame() {
-        // Reset game state
-        this.gameStarted = false;
-
-        // Update container state
+        // Update container state - go directly to playing
         const container = document.getElementById('game-container');
-        container.classList.remove('playing');
         container.classList.remove('ended');
-        container.classList.add('ready');
+        container.classList.remove('ready');
+        container.classList.add('playing');
 
-        // Restart the scene
+        // Restart the scene and start immediately
         this.scene.restart();
+
+        // Set gameStarted to true immediately after restart
+        this.time.delayedCall(100, () => {
+            this.gameStarted = true;
+        });
     }
 
     update() {
@@ -1316,10 +1259,6 @@ export default class MainScene extends Phaser.Scene {
         // Update UI positions
         if (this.levelText) {
             this.levelText.x = gameSize.width - 20;
-        }
-        if (this.gameOverContainer) {
-            this.gameOverContainer.x = this.centerX;
-            this.gameOverContainer.y = this.centerY;
         }
 
         // Regenerate roundabout graphics
