@@ -91,10 +91,9 @@ canvas {
   transform: translateX(50%) scale(0.95);
 }
 
-@media (max-width: 768px), (hover: none) {
-  #game-container.playing .mobile-button {
-    display: block;
-  }
+/* Show mobile buttons only on mobile devices (controlled by JavaScript) */
+#game-container.playing.mobile-device .mobile-button {
+  display: block;
 }
 
 /* Start screen */

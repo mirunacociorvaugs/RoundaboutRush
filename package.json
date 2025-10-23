@@ -10,12 +10,18 @@
     "preview": "vite preview",
     "start": "npx http-server -p 8080 -c-1"
   },
-  "keywords": ["game", "phaser", "arcade", "circular"],
+  "keywords": [
+    "game",
+    "phaser",
+    "arcade",
+    "circular"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "phaser": "^3.70.0",
-    "@jti-extensions/client": "^5.6.4"
+    "@jti-extensions/client": "^5.6.4",
+    "bowser": "^2.12.1",
+    "phaser": "^3.70.0"
   },
   "devDependencies": {
     "http-server": "^14.1.1",

@@ -1,6 +1,7 @@
 import config from './config.js';
 import MainScene from './MainScene.js';
 import JtiExtension from "@jti-extensions/client";
+import Bowser from 'bowser';
 
 config.scene = [MainScene];
 
@@ -33,6 +34,10 @@ async function initializeGame() {
 
     // Setup UI event handlers after game is created
     setupUIHandlers();
+
+    // Setup mobile button visibility
+    updateMobileButtons();
+    window.addEventListener('resize', updateMobileButtons);
 }
 
 function setupUIHandlers() {
@@ -123,6 +128,27 @@ function setupUIHandlers() {
             prizesScreen.classList.add('hidden');
             prizesScreen.classList.remove('active');
         });
+    }
+}
+
+// Mobile device detection using Bowser library
+function isMobileDevice() {
+    const parser = Bowser.getParser(window.navigator.userAgent);
+    const platformType = parser.getPlatformType();
+
+    // Show buttons on mobile phones and tablets, hide on desktop
+    return platformType === 'mobile' || platformType === 'tablet';
+}
+
+// Update mobile button visibility based on device detection
+function updateMobileButtons() {
+    const container = document.getElementById('game-container');
+    if (!container) return;
+
+    if (isMobileDevice()) {
+        container.classList.add('mobile-device');
+    } else {
+        container.classList.remove('mobile-device');
     }
 }
 
