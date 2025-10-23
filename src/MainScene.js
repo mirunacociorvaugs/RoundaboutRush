@@ -5,7 +5,12 @@ export default class MainScene extends Phaser.Scene {
     }
 
     preload() {
-        // No assets to load - using pure graphics
+        // Load player and powerup assets as PNGs
+        this.load.image('player', './assetsss/Player_1.png');
+        this.load.image('slow', './assetsss/Slow.png');
+        this.load.image('shield', './assetsss/Shield.png');
+        this.load.image('nordicSpirit', './assetsss/NordicSpirit.png');
+        this.load.image('spaceBackground', './assetsss/space-background.jpg');
     }
 
     create() {
@@ -38,7 +43,7 @@ export default class MainScene extends Phaser.Scene {
         this.score = 0;
         this.level = 1;
         this.gameOver = false;
-        this.highScore = parseInt(localStorage.getItem('roundaboutRushHighScore')) || 0;
+        this.highScore = parseInt(localStorage.getItem('maxOrbitHighScore')) || 0;
 
         // Orbit tracking for continuous gameplay
         this.currentOrbitLevel = 1;  // Which orbit's hazards are currently active
@@ -93,20 +98,21 @@ export default class MainScene extends Phaser.Scene {
     }
 
     createBackground() {
-        // Dark gradient background (dynamic size)
-        const bg = this.add.graphics();
-        bg.fillGradientStyle(0x2d3561, 0x2d3561, 0x1a1a2e, 0x1a1a2e, 1);
-        bg.fillRect(0, 0, this.scale.width, this.scale.height);
+        // Add space background image
+        const bg = this.add.image(this.scale.width / 2, this.scale.height / 2, 'spaceBackground');
+        bg.setDisplaySize(this.scale.width, this.scale.height);
+        bg.setDepth(-10); // Ensure it's behind everything
 
         // Add some ambient glowing particles (dynamic positioning)
         const margin = 50;
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 15; i++) {
             const x = Phaser.Math.Between(margin, this.scale.width - margin);
             const y = Phaser.Math.Between(margin, this.scale.height - margin);
             const size = Phaser.Math.Between(1, 3);
-            const alpha = Phaser.Math.FloatBetween(0.2, 0.6);
+            const alpha = Phaser.Math.FloatBetween(0.3, 0.7);
 
             const particle = this.add.circle(x, y, size, 0xffffff, alpha);
+            particle.setDepth(-5); // Above background but below game elements
 
             // Gentle twinkling animation
             this.tweens.add({
@@ -133,10 +139,14 @@ export default class MainScene extends Phaser.Scene {
         // Draw roundabout lanes
         this.roundaboutGraphics = this.add.graphics();
 
-        // Center circle (darker center area)
-        const centerSize = this.innerRadius - (this.innerRadius * 0.3);
-        this.roundaboutGraphics.fillStyle(0x1a1a2e, 0.6);
-        this.roundaboutGraphics.fillCircle(this.centerX, this.centerY, centerSize);
+        // Dark blue circle around the planet (like in reference image)
+        const planetCircleSize = this.innerRadius - 5; // Slightly smaller than inner lane
+        this.roundaboutGraphics.fillStyle(0x2a3561, 1.0); // Dark blue color from reference
+        this.roundaboutGraphics.fillCircle(this.centerX, this.centerY, planetCircleSize);
+
+        // Center circle (darker center area) - smaller to show blue ring
+        const centerSize = this.innerRadius - (this.innerRadius * 0.35);
+        // Don't draw static center circle - we'll use pulsing one instead
 
         // Inner lane circle (guideline) - thicker and brighter
         this.roundaboutGraphics.lineStyle(3, 0x4a90e2, 0.7);
@@ -150,16 +160,27 @@ export default class MainScene extends Phaser.Scene {
         this.roundaboutGraphics.lineStyle(3, 0x4a90e2, 0.7);
         this.roundaboutGraphics.strokeCircle(this.centerX, this.centerY, this.outerRadius);
 
-        // Center glow - bigger and more visible
-        this.centerGlow = this.add.circle(this.centerX, this.centerY, 35, 0x00bcd4, 0.6);
+        // Create pulsing inner circle effect (smaller circle behind planet)
+        this.pulsingCircle = this.add.circle(this.centerX, this.centerY, centerSize, 0x1a1a2e, 1.0);
+        this.pulsingCircle.setDepth(0); // Behind the Nordic logo but above the static circles
+
+        // Pulsing animation for the inner circle - pulses outward toward the dark blue ring
         this.tweens.add({
-            targets: this.centerGlow,
-            scale: 1.4,
-            alpha: 0.3,
+            targets: this.pulsingCircle,
+            scale: { from: 0.95, to: 1.1 }, // Pulse from slightly smaller to push against blue ring
             duration: 2000,
             yoyo: true,
-            repeat: -1
+            repeat: -1,
+            ease: 'Sine.easeInOut'
         });
+
+        // Add Nordic Spirit PNG logo in center
+        const nordicLogo = this.add.image(this.centerX, this.centerY, 'nordicSpirit');
+        // Scale to fit inner circle (about 70% of inner radius to leave some space)
+        const targetSize = this.innerRadius * 1.4; // 70% of diameter (radius * 2 * 0.7)
+        const logoScale = Math.min(targetSize / nordicLogo.width, targetSize / nordicLogo.height);
+        nordicLogo.setScale(logoScale);
+        nordicLogo.setDepth(0); // Behind everything else
     }
 
     createScooter() {
@@ -167,35 +188,34 @@ export default class MainScene extends Phaser.Scene {
         this.scooter = this.add.container(0, 0);
         this.scooter.setDepth(10);  // Always render above roundabout
 
-        // Outer glow (expanded)
-        const outerGlow = this.add.circle(0, 0, 28, 0x00bcd4, 0.3);
-        // Middle glow
-        const middleGlow = this.add.circle(0, 0, 18, 0x00e5ff, 0.6);
-        // Inner bright ring
-        const innerRing = this.add.circle(0, 0, 12, 0x4dffff, 0.8);
-        // Core
-        const core = this.add.circle(0, 0, 8, 0xffffff, 1);
+        // Add player sprite - moderately larger than enemies
+        const playerSprite = this.add.image(0, 0, 'player');
+        playerSprite.setScale(0.12); // Reduced size - still larger than enemies but not excessive
+        playerSprite.setOrigin(0.5, 0.5); // Center the sprite
 
-        this.scooter.add([outerGlow, middleGlow, innerRing, core]);
+        // Add a subtle glow effect behind the player
+        const glowCircle = this.add.circle(0, 0, 45, 0x00bcd4, 0.3);
 
-        // Pulsing animation on outer glow
+        // Add elements to container (glow behind, player on top)
+        this.scooter.add([glowCircle, playerSprite]);
+
+        // Pulsing animation on glow
         this.tweens.add({
-            targets: outerGlow,
-            scale: 1.3,
+            targets: glowCircle,
+            scale: 1.2,
             alpha: 0.1,
-            duration: 700,
+            duration: 800,
             yoyo: true,
             repeat: -1
         });
 
-        // Subtle pulse on inner ring
+        // Subtle rotation animation on player sprite
         this.tweens.add({
-            targets: innerRing,
-            scale: 1.1,
-            alpha: 0.5,
-            duration: 900,
-            yoyo: true,
-            repeat: -1
+            targets: playerSprite,
+            angle: 360,
+            duration: 20000,
+            repeat: -1,
+            ease: 'Linear'
         });
 
         this.updateScooterPosition();
@@ -229,8 +249,8 @@ export default class MainScene extends Phaser.Scene {
     }
 
     setupInput() {
-        // Keyboard input - A for left, D for right
-        this.input.keyboard.on('keydown-A', () => {
+        // Keyboard input - Left arrow for outer lane, Right arrow for inner lane
+        this.input.keyboard.on('keydown-LEFT', () => {
             if (this.gameOver) {
                 this.restartGame();
             } else {
@@ -238,7 +258,7 @@ export default class MainScene extends Phaser.Scene {
             }
         });
 
-        this.input.keyboard.on('keydown-D', () => {
+        this.input.keyboard.on('keydown-RIGHT', () => {
             if (this.gameOver) {
                 this.restartGame();
             } else {
@@ -613,48 +633,18 @@ export default class MainScene extends Phaser.Scene {
         const powerupContainer = this.add.container(x, y);
 
         if (type === 'speed') {
-            // SNAIL GRAPHIC
+            // SLOW TIME POWERUP (using Slow.svg)
             const color = 0x00ffff; // Cyan
 
             // Outer glow
             const outerGlow = this.add.circle(0, 0, 30, color, 0.3);
             powerupContainer.add(outerGlow);
 
-            // Draw snail using graphics
-            const snail = this.add.graphics();
-
-            // Shell (spiral)
-            snail.fillStyle(color, 0.8);
-            snail.fillCircle(3, -2, 12);
-            snail.lineStyle(2, 0xffffff, 0.9);
-            snail.beginPath();
-            snail.arc(3, -2, 8, 0, Math.PI * 1.5, false);
-            snail.strokePath();
-            snail.beginPath();
-            snail.arc(3, -2, 5, 0, Math.PI * 1.5, false);
-            snail.strokePath();
-
-            // Body
-            snail.fillStyle(color, 0.9);
-            snail.fillEllipse(-5, 5, 14, 6);
-
-            // Antennae
-            snail.lineStyle(2, color, 1);
-            snail.beginPath();
-            snail.moveTo(-8, 2);
-            snail.lineTo(-12, -4);
-            snail.strokePath();
-            snail.beginPath();
-            snail.moveTo(-5, 2);
-            snail.lineTo(-7, -5);
-            snail.strokePath();
-
-            // Antenna tips
-            snail.fillStyle(0xffffff, 1);
-            snail.fillCircle(-12, -4, 2);
-            snail.fillCircle(-7, -5, 2);
-
-            powerupContainer.add(snail);
+            // Add Slow PNG icon
+            const slowIcon = this.add.image(0, 0, 'slow');
+            slowIcon.setScale(0.12); // Adjusted for visibility
+            slowIcon.setOrigin(0.5, 0.5);
+            powerupContainer.add(slowIcon);
 
             // Pulsing animation
             this.tweens.add({
@@ -666,43 +656,29 @@ export default class MainScene extends Phaser.Scene {
                 repeat: -1
             });
 
+            // Subtle rotation on the icon
+            this.tweens.add({
+                targets: slowIcon,
+                angle: 10,
+                duration: 1500,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+
         } else {
-            // SHIELD GRAPHIC
+            // SHIELD POWERUP (using Shield.svg)
             const color = 0xff00ff; // Magenta
 
             // Outer glow
             const outerGlow = this.add.circle(0, 0, 30, color, 0.3);
             powerupContainer.add(outerGlow);
 
-            // Draw shield using graphics
-            const shield = this.add.graphics();
-
-            // Shield outline
-            shield.lineStyle(3, 0xffffff, 1);
-            shield.fillStyle(color, 0.8);
-            shield.beginPath();
-            shield.moveTo(0, -15);
-            shield.lineTo(12, -10);
-            shield.lineTo(12, 5);
-            shield.lineTo(0, 15);
-            shield.lineTo(-12, 5);
-            shield.lineTo(-12, -10);
-            shield.closePath();
-            shield.fillPath();
-            shield.strokePath();
-
-            // Shield cross detail
-            shield.lineStyle(2, 0xffffff, 0.9);
-            shield.beginPath();
-            shield.moveTo(0, -12);
-            shield.lineTo(0, 12);
-            shield.strokePath();
-            shield.beginPath();
-            shield.moveTo(-9, -2);
-            shield.lineTo(9, -2);
-            shield.strokePath();
-
-            powerupContainer.add(shield);
+            // Add Shield PNG icon
+            const shieldIcon = this.add.image(0, 0, 'shield');
+            shieldIcon.setScale(0.18); // Adjusted for visibility
+            shieldIcon.setOrigin(0.5, 0.5);
+            powerupContainer.add(shieldIcon);
 
             // Pulsing animation
             this.tweens.add({
@@ -712,6 +688,16 @@ export default class MainScene extends Phaser.Scene {
                 duration: 600,
                 yoyo: true,
                 repeat: -1
+            });
+
+            // Subtle scale pulsing on the shield
+            this.tweens.add({
+                targets: shieldIcon,
+                scale: 1.1,
+                duration: 1200,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
             });
         }
 
@@ -767,49 +753,20 @@ export default class MainScene extends Phaser.Scene {
             const originalSpeed = this.rotationSpeed;
             this.rotationSpeed = originalSpeed * 0.5; // 50% reduction
 
-            // Create snail icon on player
-            const color = 0x00ffff; // Cyan
-            this.activeEffectIcon = this.add.container(0, -35); // Position above player
+            // Create powerup icon on player
+            this.activeEffectIcon = this.add.container(0, -20); // Position above player
 
-            // Background glow
-            const glow = this.add.circle(0, 0, 25, color, 0.3);
-            this.activeEffectIcon.add(glow);
-
-            // Draw snail (scaled up)
-            const snail = this.add.graphics();
-            snail.fillStyle(color, 0.9);
-            snail.fillCircle(4, -3, 15);
-            snail.lineStyle(2, 0xffffff, 1);
-            snail.beginPath();
-            snail.arc(4, -3, 10, 0, Math.PI * 1.5, false);
-            snail.strokePath();
-            snail.beginPath();
-            snail.arc(4, -3, 6, 0, Math.PI * 1.5, false);
-            snail.strokePath();
-            snail.fillStyle(color, 1);
-            snail.fillEllipse(-6, 6, 18, 8);
-            snail.lineStyle(2, color, 1);
-            snail.beginPath();
-            snail.moveTo(-10, 3);
-            snail.lineTo(-15, -5);
-            snail.strokePath();
-            snail.beginPath();
-            snail.moveTo(-6, 3);
-            snail.lineTo(-9, -6);
-            snail.strokePath();
-            snail.fillStyle(0xffffff, 1);
-            snail.fillCircle(-15, -5, 2.5);
-            snail.fillCircle(-9, -6, 2.5);
-
-            this.activeEffectIcon.add(snail);
+            // Add Slow PNG image - match track size
+            const slowIcon = this.add.image(0, 0, 'slow');
+            slowIcon.setScale(0.03); // Much smaller to match track powerups
+            this.activeEffectIcon.add(slowIcon);
             this.scooter.add(this.activeEffectIcon);
 
-            // Gentle pulse
-            this.tweens.add({
-                targets: glow,
-                scale: 1.2,
-                alpha: 0.1,
-                duration: 400,
+            // Store tween reference - no transparency, just subtle scale
+            this.effectPulseTween = this.tweens.add({
+                targets: slowIcon,
+                scale: { from: 0.03, to: 0.033 }, // Very subtle 10% pulse
+                duration: 600,
                 yoyo: true,
                 repeat: -1
             });
@@ -818,47 +775,20 @@ export default class MainScene extends Phaser.Scene {
             // Invisibility effect
             this.isInvincible = true;
 
-            // Create shield icon on player
-            const color = 0xff00ff; // Magenta
-            this.activeEffectIcon = this.add.container(0, -35); // Position above player
+            // Create powerup icon on player
+            this.activeEffectIcon = this.add.container(0, -20); // Position above player
 
-            // Background glow
-            const glow = this.add.circle(0, 0, 25, color, 0.3);
-            this.activeEffectIcon.add(glow);
-
-            // Draw shield (scaled up slightly)
-            const shield = this.add.graphics();
-            shield.lineStyle(3, 0xffffff, 1);
-            shield.fillStyle(color, 0.9);
-            shield.beginPath();
-            shield.moveTo(0, -18);
-            shield.lineTo(14, -12);
-            shield.lineTo(14, 6);
-            shield.lineTo(0, 18);
-            shield.lineTo(-14, 6);
-            shield.lineTo(-14, -12);
-            shield.closePath();
-            shield.fillPath();
-            shield.strokePath();
-            shield.lineStyle(2, 0xffffff, 1);
-            shield.beginPath();
-            shield.moveTo(0, -15);
-            shield.lineTo(0, 15);
-            shield.strokePath();
-            shield.beginPath();
-            shield.moveTo(-11, -2);
-            shield.lineTo(11, -2);
-            shield.strokePath();
-
-            this.activeEffectIcon.add(shield);
+            // Add Shield PNG image - match track size
+            const shieldIcon = this.add.image(0, 0, 'shield');
+            shieldIcon.setScale(0.04); // Much smaller to match track powerups
+            this.activeEffectIcon.add(shieldIcon);
             this.scooter.add(this.activeEffectIcon);
 
-            // Gentle pulse
-            this.tweens.add({
-                targets: glow,
-                scale: 1.2,
-                alpha: 0.1,
-                duration: 350,
+            // Store tween reference - no transparency, just subtle scale
+            this.effectPulseTween = this.tweens.add({
+                targets: shieldIcon,
+                scale: { from: 0.04, to: 0.044 }, // Very subtle 10% pulse
+                duration: 600,
                 yoyo: true,
                 repeat: -1
             });
@@ -875,6 +805,12 @@ export default class MainScene extends Phaser.Scene {
             this.rotationSpeed = this.baseRotationSpeed * (1 + (this.level - 1) * 0.007);
         } else if (type === 'invisibility') {
             this.isInvincible = false;
+        }
+
+        // Kill any existing tweens
+        if (this.effectPulseTween) {
+            this.tweens.remove(this.effectPulseTween);
+            this.effectPulseTween = null;
         }
 
         // Remove visual indicator
@@ -1024,7 +960,7 @@ export default class MainScene extends Phaser.Scene {
 
         if (this.score > this.highScore) {
             this.highScore = this.score;
-            localStorage.setItem('roundaboutRushHighScore', this.highScore);
+            localStorage.setItem('maxOrbitHighScore', this.highScore);
         }
     }
 
@@ -1066,7 +1002,9 @@ export default class MainScene extends Phaser.Scene {
 
             // Generate new roundabout (seamless)
             this.roundaboutGraphics.destroy();
-            this.centerGlow.destroy();
+            if (this.pulsingCircle) {
+                this.pulsingCircle.destroy();
+            }
             this.generateRoundabout();
 
             // Pre-generate next orbit hazards (no delay needed)
@@ -1205,21 +1143,54 @@ export default class MainScene extends Phaser.Scene {
                 angleProgress += 360;
             }
 
-            // Flash warning at 150 degrees (83% of 180)
-            if (angleProgress >= 150 && !this.effectFlashWarning) {
+            // Gradually increase pulse speed as powerup approaches expiration
+            if (angleProgress >= 90) { // Start speeding up at halfway point
+                const speedFactor = (angleProgress - 90) / 90; // 0 to 1 as it approaches 180
+                const newDuration = 600 - (400 * speedFactor); // From 600ms to 200ms
+
+                // Update the pulse tween if it exists
+                if (this.effectPulseTween && this.activeEffectIcon) {
+                    // Get the icon (first child of container)
+                    const icon = this.activeEffectIcon.list[0];
+                    if (icon) {
+                        // Kill existing tween
+                        this.tweens.killTweensOf(icon);
+
+                        // Determine base scale based on powerup type
+                        const baseScale = this.activeEffect === 'speed' ? 0.03 : 0.04;
+
+                        // Create new tween with faster speed
+                        this.effectPulseTween = this.tweens.add({
+                            targets: icon,
+                            scale: { from: baseScale, to: baseScale * (1.1 + 0.1 * speedFactor) }, // Up to 20% bigger at end
+                            duration: newDuration,
+                            yoyo: true,
+                            repeat: -1
+                        });
+                    }
+                }
+            }
+
+            // Flash warning at 165 degrees (92% of 180)
+            if (angleProgress >= 165 && !this.effectFlashWarning) {
                 this.effectFlashWarning = true;
 
-                // Stop gentle pulse and start rapid flash on the glow (first child)
+                // Very rapid flash for final warning
                 if (this.activeEffectIcon && this.activeEffectIcon.list.length > 0) {
-                    const glow = this.activeEffectIcon.list[0];
-                    this.tweens.killTweensOf(glow);
-                    this.tweens.add({
-                        targets: glow,
-                        alpha: 0.05,
-                        duration: 100,
-                        yoyo: true,
-                        repeat: -1
-                    });
+                    const icon = this.activeEffectIcon.list[0];
+                    if (icon) {
+                        // Determine base scale based on powerup type
+                        const baseScale = this.activeEffect === 'speed' ? 0.03 : 0.04;
+
+                        this.tweens.killTweensOf(icon);
+                        this.tweens.add({
+                            targets: icon,
+                            scale: { from: baseScale * 0.9, to: baseScale * 1.3 }, // Rapid pulsing
+                            duration: 80,
+                            yoyo: true,
+                            repeat: -1
+                        });
+                    }
                 }
             }
 
@@ -1265,8 +1236,8 @@ export default class MainScene extends Phaser.Scene {
         if (this.roundaboutGraphics) {
             this.roundaboutGraphics.destroy();
         }
-        if (this.centerGlow) {
-            this.centerGlow.destroy();
+        if (this.pulsingCircle) {
+            this.pulsingCircle.destroy();
         }
         this.generateRoundabout();
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>ROUNDABOUT RUSH</title>
+    <title>MAX ORBIT</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,8 +13,10 @@
 
         <!-- Start Screen -->
         <div class="game-ready">
-            <h1 class="game-title">ROUNDABOUT RUSH</h1>
-            <button id="start-button">START</button>
+            <img src="./assetsss/NordicSpirit.png" alt="Nordic Spirit" class="nordic-spirit-logo" />
+            <img src="./assetsss/Game_Logo.png" alt="MAX ORBIT" class="game-logo" />
+            <button id="start-button" class="menu-button">START</button>
+            <button id="how-to-play-btn" class="menu-button how-to-play-button">HOW TO PLAY</button>
         </div>
 
         <!-- Game Over Screen -->
@@ -22,28 +24,10 @@
             <h1 class="game-title">GAME OVER</h1>
             <p id="game-over-score" class="game-over-score">SCORE: 0</p>
             <button id="restart-button">RESTART</button>
+            <button id="how-to-play-btn-gameover" class="menu-button how-to-play-button">HOW TO PLAY</button>
         </div>
 
-        <!-- Corner Buttons (visible in ready and ended states) -->
-        <button id="instructions-btn" class="corner-button left-bottom">
-            <svg viewBox="0 0 24 24" fill="white">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
-                <path d="M8 12h8v2H8zm0 4h8v2H8zm0-8h5v2H8z"/>
-            </svg>
-        </button>
-        <button id="prizes-btn" class="corner-button bottom-center">
-            <svg viewBox="0 0 24 24" fill="white">
-                <circle cx="12" cy="15" r="5" stroke="white" stroke-width="1.5" fill="none"/>
-                <path d="M12 10 L12 4 M9 4 L9 9 L12 10 L15 9 L15 4 M9 4 L15 4" stroke="white" stroke-width="1.5" fill="none"/>
-                <path d="M8 18 L8 22 L16 22 L16 18" stroke="white" stroke-width="1.5"/>
-                <circle cx="12" cy="15" r="2" fill="white"/>
-            </svg>
-        </button>
-        <button id="leaderboard-btn" class="corner-button right-bottom">
-            <svg viewBox="0 0 24 24" fill="white">
-                <path d="M7 3v2H5v3c0 2.21 1.79 4 4 4v2H7v7h10v-7h-2v-2c2.21 0 4-1.79 4-4V5h-2V3H7zm10 2v3c0 1.1-.9 2-2 2h-1V8h1c.55 0 1-.45 1-1V5h1zM9 5v2c0 .55.45 1 1 1h1v2H10c-1.1 0-2-.9-2-2V5h1zm3 14v-4h4v4h-4z"/>
-            </svg>
-        </button>
+        <!-- Corner Buttons removed - How to Play button moved to main screen -->
 
         <!-- Mobile Control Buttons -->
         <button id="left-button" class="mobile-button">OUTER</button>
@@ -58,21 +42,21 @@
             <div class="instructions-content">
                 <p><strong>Controls:</strong></p>
                 <ul>
-                    <li>Press <strong>A</strong> to move to outer lane</li>
-                    <li>Press <strong>D</strong> to move to inner lane</li>
+                    <li>Press <strong>LEFT</strong> arrow key to move to outer lane</li>
+                    <li>Press <strong>RIGHT</strong> arrow key to move to inner lane</li>
                     <li>On mobile: Tap the left/right buttons</li>
                 </ul>
                 <p><strong>Objective:</strong></p>
-                <p>Navigate through the roundabout and avoid obstacles. Your scooter automatically rotates around the center. Switch between three lanes to dodge hazards and survive as long as possible!</p>
+                <p>Navigate around the Max Orbit and avoid obstacles. Your Nordic Spirit Max can automatically orbits around the centre. Switch between the three rings to avoid the obstacles, claim power-ups and survive for as long as possible!</p>
                 <p><strong>Scoring:</strong></p>
                 <ul>
                     <li>Earn points for each obstacle you pass</li>
                     <li>The game gets faster as your level increases</li>
                     <li>Collect powerups for special abilities</li>
                 </ul>
-                <p><strong>Powerups:</strong></p>
+                <p><strong>Power-Ups:</strong></p>
                 <ul>
-                    <li><strong>Snail</strong>: Slows down the game speed</li>
+                    <li><strong>Slow Time</strong>: Slows down the game speed</li>
                     <li><strong>Shield</strong>: Grants temporary invincibility</li>
                 </ul>
             </div>

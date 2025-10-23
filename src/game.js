@@ -18,7 +18,7 @@ async function initializeGame() {
 
         // Initialize SDK before creating game
         const initResponse = await JtiExtension.init({
-            extensionName: "roundabout-rush",
+            extensionName: "max-orbit",
             mock: isLocalhost,
         });
 
@@ -69,11 +69,32 @@ function setupUIHandlers() {
         });
     }
 
-    // Instructions button
-    const instructionsBtn = document.getElementById('instructions-btn');
+    // How to Play buttons (both on start screen and game over screen)
+    const howToPlayBtn = document.getElementById('how-to-play-btn');
+    const howToPlayBtnGameover = document.getElementById('how-to-play-btn-gameover');
+    const instructionsBtn = document.getElementById('instructions-btn'); // Keep for backward compatibility
     const closeInstructions = document.getElementById('close-instructions');
     const instructionsScreen = document.getElementById('instructions-screen');
 
+    // Hook up the How to Play button on start screen
+    if (howToPlayBtn && instructionsScreen) {
+        howToPlayBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            instructionsScreen.classList.remove('hidden');
+            instructionsScreen.classList.add('active');
+        });
+    }
+
+    // Hook up the How to Play button on game over screen
+    if (howToPlayBtnGameover && instructionsScreen) {
+        howToPlayBtnGameover.addEventListener('click', (e) => {
+            e.stopPropagation();
+            instructionsScreen.classList.remove('hidden');
+            instructionsScreen.classList.add('active');
+        });
+    }
+
+    // Keep old instructions button for backward compatibility
     if (instructionsBtn && instructionsScreen) {
         instructionsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
