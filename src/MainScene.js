@@ -642,7 +642,7 @@ export default class MainScene extends Phaser.Scene {
 
             // Add Slow PNG icon
             const slowIcon = this.add.image(0, 0, 'slow');
-            slowIcon.setScale(0.12); // Adjusted for visibility
+            slowIcon.setScale(0.08); // Normal size like enemies
             slowIcon.setOrigin(0.5, 0.5);
             powerupContainer.add(slowIcon);
 
@@ -676,7 +676,7 @@ export default class MainScene extends Phaser.Scene {
 
             // Add Shield PNG icon
             const shieldIcon = this.add.image(0, 0, 'shield');
-            shieldIcon.setScale(0.18); // Adjusted for visibility
+            shieldIcon.setScale(0.08); // Normal size like enemies
             shieldIcon.setOrigin(0.5, 0.5);
             powerupContainer.add(shieldIcon);
 
@@ -693,7 +693,7 @@ export default class MainScene extends Phaser.Scene {
             // Subtle scale pulsing on the shield
             this.tweens.add({
                 targets: shieldIcon,
-                scale: 1.1,
+                scale: 0.088, // 10% larger than base 0.08
                 duration: 1200,
                 yoyo: true,
                 repeat: -1,
@@ -756,16 +756,16 @@ export default class MainScene extends Phaser.Scene {
             // Create powerup icon on player
             this.activeEffectIcon = this.add.container(0, -20); // Position above player
 
-            // Add Slow PNG image - match track size
+            // Add Slow PNG image - visible above player
             const slowIcon = this.add.image(0, 0, 'slow');
-            slowIcon.setScale(0.03); // Much smaller to match track powerups
+            slowIcon.setScale(0.06); // Visible size above player
             this.activeEffectIcon.add(slowIcon);
             this.scooter.add(this.activeEffectIcon);
 
             // Store tween reference - no transparency, just subtle scale
             this.effectPulseTween = this.tweens.add({
                 targets: slowIcon,
-                scale: { from: 0.03, to: 0.033 }, // Very subtle 10% pulse
+                scale: { from: 0.06, to: 0.066 }, // Very subtle 10% pulse
                 duration: 600,
                 yoyo: true,
                 repeat: -1
@@ -778,16 +778,16 @@ export default class MainScene extends Phaser.Scene {
             // Create powerup icon on player
             this.activeEffectIcon = this.add.container(0, -20); // Position above player
 
-            // Add Shield PNG image - match track size
+            // Add Shield PNG image - visible above player
             const shieldIcon = this.add.image(0, 0, 'shield');
-            shieldIcon.setScale(0.04); // Much smaller to match track powerups
+            shieldIcon.setScale(0.07); // Visible size above player
             this.activeEffectIcon.add(shieldIcon);
             this.scooter.add(this.activeEffectIcon);
 
             // Store tween reference - no transparency, just subtle scale
             this.effectPulseTween = this.tweens.add({
                 targets: shieldIcon,
-                scale: { from: 0.04, to: 0.044 }, // Very subtle 10% pulse
+                scale: { from: 0.07, to: 0.077 }, // Very subtle 10% pulse
                 duration: 600,
                 yoyo: true,
                 repeat: -1
@@ -823,6 +823,7 @@ export default class MainScene extends Phaser.Scene {
         this.activeEffect = null;
         this.effectStartAngle = null;
         this.effectFlashWarning = false;
+        this.currentFlickerDuration = null; // Reset flicker duration tracking
     }
 
     updateScooterPosition() {
@@ -1143,30 +1144,50 @@ export default class MainScene extends Phaser.Scene {
                 angleProgress += 360;
             }
 
-            // Gradually increase pulse speed as powerup approaches expiration
-            if (angleProgress >= 90) { // Start speeding up at halfway point
-                const speedFactor = (angleProgress - 90) / 90; // 0 to 1 as it approaches 180
-                const newDuration = 600 - (400 * speedFactor); // From 600ms to 200ms
+            // Start flickering as powerup approaches expiration
+            if (angleProgress >= 90) { // Start flickering at halfway point
+                const progressPercent = (angleProgress - 90) / 90; // 0 to 1 as it approaches 180
 
-                // Update the pulse tween if it exists
+                // Calculate flicker speed - starts slow, gets faster
+                let flickerDuration;
+                if (progressPercent < 0.5) {
+                    // 90-135 degrees: Slow flicker
+                    flickerDuration = 400;
+                } else if (progressPercent < 0.75) {
+                    // 135-157.5 degrees: Medium flicker
+                    flickerDuration = 250;
+                } else if (progressPercent < 0.9) {
+                    // 157.5-171 degrees: Fast flicker
+                    flickerDuration = 150;
+                } else {
+                    // 171-180 degrees: Very fast flicker
+                    flickerDuration = 80;
+                }
+
+                // Update the flicker tween if needed
                 if (this.effectPulseTween && this.activeEffectIcon) {
-                    // Get the icon (first child of container)
                     const icon = this.activeEffectIcon.list[0];
                     if (icon) {
-                        // Kill existing tween
-                        this.tweens.killTweensOf(icon);
+                        // Check if we need to update the tween (duration changed)
+                        if (!this.currentFlickerDuration || this.currentFlickerDuration !== flickerDuration) {
+                            this.currentFlickerDuration = flickerDuration;
 
-                        // Determine base scale based on powerup type
-                        const baseScale = this.activeEffect === 'speed' ? 0.03 : 0.04;
+                            // Kill existing tween
+                            this.tweens.killTweensOf(icon);
 
-                        // Create new tween with faster speed
-                        this.effectPulseTween = this.tweens.add({
-                            targets: icon,
-                            scale: { from: baseScale, to: baseScale * (1.1 + 0.1 * speedFactor) }, // Up to 20% bigger at end
-                            duration: newDuration,
-                            yoyo: true,
-                            repeat: -1
-                        });
+                            // Determine base scale based on powerup type
+                            const baseScale = this.activeEffect === 'speed' ? 0.06 : 0.07;
+
+                            // Create flickering effect with opacity
+                            this.effectPulseTween = this.tweens.add({
+                                targets: icon,
+                                alpha: { from: 1, to: 0.3 },
+                                scale: { from: baseScale, to: baseScale * 1.05 }, // Subtle scale pulse
+                                duration: flickerDuration,
+                                yoyo: true,
+                                repeat: -1
+                            });
+                        }
                     }
                 }
             }
@@ -1180,13 +1201,14 @@ export default class MainScene extends Phaser.Scene {
                     const icon = this.activeEffectIcon.list[0];
                     if (icon) {
                         // Determine base scale based on powerup type
-                        const baseScale = this.activeEffect === 'speed' ? 0.03 : 0.04;
+                        const baseScale = this.activeEffect === 'speed' ? 0.06 : 0.07;
 
                         this.tweens.killTweensOf(icon);
                         this.tweens.add({
                             targets: icon,
-                            scale: { from: baseScale * 0.9, to: baseScale * 1.3 }, // Rapid pulsing
-                            duration: 80,
+                            alpha: { from: 0.2, to: 1 }, // Rapid opacity flashing
+                            scale: { from: baseScale * 0.9, to: baseScale * 1.1 }, // Smaller scale range
+                            duration: 50, // Even faster for urgency
                             yoyo: true,
                             repeat: -1
                         });
