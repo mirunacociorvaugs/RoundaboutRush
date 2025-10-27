@@ -1074,24 +1074,20 @@ export default class MainScene extends Phaser.Scene {
 
     async submitScoreToJTI() {
         try {
-            // Import JTI SDK from the correct path
-            const { JtiExtension } = await import('./game.js');
+            // Import the new JTI coin calculation function
+            const { calculateAndSubmitJTICoins } = await import('./game.js');
 
-            if (!JtiExtension) {
-                console.warn('JTI SDK not available');
-                return;
+            // Calculate and submit JTI coins with daily limit
+            const result = await calculateAndSubmitJTICoins(this.score);
+
+            // Show feedback to user about coins earned
+            if (result.coinsEarned > 0) {
+                console.log(`You earned ${result.coinsEarned} JTI coins! Daily total: ${result.totalDaily}/10`);
+            } else if (result.hitLimit) {
+                console.log(`Daily limit reached! You've earned the maximum 10 JTI coins today. Come back tomorrow!`);
+            } else {
+                console.log(`Score: ${this.score}. No JTI coins earned (need 100+ score per coin).`);
             }
-
-            // Submit score and get ranking in one call
-            const response = await JtiExtension.setResultAndGetRanking({
-                normalizedPoints: Math.min(this.score / 1000, 1), // Normalize to 0-1 range
-                displayScore: this.score // Actual score to display
-            }, {
-                limit: 10,
-                timeRange: "all-time"
-            });
-
-            console.log('Score submitted successfully:', response);
 
         } catch (error) {
             console.error('Error submitting score:', error);

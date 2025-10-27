@@ -1,5 +1,5 @@
 {
-  "name": "roundabout-rush",
+  "name": "max-orbit",
   "version": "1.0.0",
   "description": "Endless circular arcade game with delivery scooter",
   "main": "src/game.js",
@@ -19,7 +19,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@jti-extensions/client": "^5.6.4",
     "bowser": "^2.12.1",
     "phaser": "^3.70.0"
   },

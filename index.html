@@ -84,9 +84,9 @@
             <div class="prizes-content">
                 <p><strong>Compete for amazing prizes!</strong></p>
                 <ul>
-                    <li>1st Place: €200 Prize</li>
-                    <li>2nd Place: €100 Prize</li>
-                    <li>3rd Place: €50 Prize</li>
+                    <li>-</li>
+                    <li>-</li>
+                    <li>-</li>
                 </ul>
                 <p>Play the game, earn points, and climb the leaderboard to win!</p>
             </div>
@@ -94,6 +94,15 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+
+    <!-- JTI Connexus SDK v3 - Embed in your extension -->
+    <script src="https://www.jti-connexus.com/extensions/sdk/jtic-sdk-v3.js"></script>
+    <script>
+        window.jticonnexus.extId = "max-orbit"
+        window.jticonnexus.baseUrl = "https://preview.sandbox.jti-connexus.com"
+        // Init will be called from game.js
+    </script>
+
     <script type="module" src="src/game.js"></script>
 </body>
 </html>

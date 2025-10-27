@@ -1,6 +1,5 @@
 import config from './config.js';
 import MainScene from './MainScene.js';
-import JtiExtension from "@jti-extensions/client";
 import Bowser from 'bowser';
 
 config.scene = [MainScene];
@@ -8,23 +7,47 @@ config.scene = [MainScene];
 // Initialize JTI SDK and create game
 let game = null;
 let jtiInitData = null;
+let jtiState = null;
+
+// Helper function to get UK date string
+function getUKDateString() {
+    // Create a date in UK timezone (Europe/London handles both GMT and BST)
+    const ukDate = new Date().toLocaleDateString('en-GB', {
+        timeZone: 'Europe/London',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+    return ukDate; // Returns format: DD/MM/YYYY
+}
 
 async function initializeGame() {
     try {
-        // Auto-detect mock mode based on localhost
-        const isLocalhost = window.location.hostname === 'localhost' ||
-                           window.location.hostname === '127.0.0.1' ||
-                           window.location.hostname === '0.0.0.0';
+        // Initialize SDK v3 if available
+        if (window.jticonnexus && window.jticonnexus.init) {
+            const initResponse = await window.jticonnexus.init();
+            console.log('JTI SDK v3 initialized:', initResponse);
 
-        // Initialize SDK before creating game
-        const initResponse = await JtiExtension.init({
-            extensionName: "max-orbit",
-            mock: isLocalhost,
-        });
+            if (initResponse.status === 'success') {
+                jtiInitData = initResponse;
+                jtiState = initResponse.state || {};
 
-        console.log('JTI SDK initialized:', initResponse);
-        jtiInitData = initResponse.init;
+                // Check if it's a new day in UK time
+                const ukToday = getUKDateString();
+                if (jtiState.lastPlayDate !== ukToday) {
+                    // New day - reset daily coins
+                    jtiState = {
+                        lastPlayDate: ukToday,
+                        dailyCoinsEarned: 0
+                    };
 
+                    await window.jticonnexus.setState(jtiState);
+                    console.log('New day - coins reset');
+                }
+
+                console.log('Current state:', jtiState);
+            }
+        }
     } catch (error) {
         console.error('Failed to initialize JTI SDK:', error);
     }
@@ -72,7 +95,6 @@ function setupUIHandlers() {
     // How to Play buttons (both on start screen and game over screen)
     const howToPlayBtn = document.getElementById('how-to-play-btn');
     const howToPlayBtnGameover = document.getElementById('how-to-play-btn-gameover');
-    const instructionsBtn = document.getElementById('instructions-btn'); // Keep for backward compatibility
     const closeInstructions = document.getElementById('close-instructions');
     const instructionsScreen = document.getElementById('instructions-screen');
 
@@ -94,60 +116,10 @@ function setupUIHandlers() {
         });
     }
 
-    // Keep old instructions button for backward compatibility
-    if (instructionsBtn && instructionsScreen) {
-        instructionsBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            instructionsScreen.classList.remove('hidden');
-            instructionsScreen.classList.add('active');
-        });
-    }
-
     if (closeInstructions && instructionsScreen) {
         closeInstructions.addEventListener('click', () => {
             instructionsScreen.classList.add('hidden');
             instructionsScreen.classList.remove('active');
-        });
-    }
-
-    // Leaderboard button
-    const leaderboardBtn = document.getElementById('leaderboard-btn');
-    const closeLeaderboard = document.getElementById('close-leaderboard');
-    const leaderboardScreen = document.getElementById('leaderboard-screen');
-
-    if (leaderboardBtn && leaderboardScreen) {
-        leaderboardBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            leaderboardScreen.classList.remove('hidden');
-            leaderboardScreen.classList.add('active');
-            loadLeaderboard();
-        });
-    }
-
-    if (closeLeaderboard && leaderboardScreen) {
-        closeLeaderboard.addEventListener('click', () => {
-            leaderboardScreen.classList.add('hidden');
-            leaderboardScreen.classList.remove('active');
-        });
-    }
-
-    // Prizes button
-    const prizesBtn = document.getElementById('prizes-btn');
-    const closePrizes = document.getElementById('close-prizes');
-    const prizesScreen = document.getElementById('prizes-screen');
-
-    if (prizesBtn && prizesScreen) {
-        prizesBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            prizesScreen.classList.remove('hidden');
-            prizesScreen.classList.add('active');
-        });
-    }
-
-    if (closePrizes && prizesScreen) {
-        closePrizes.addEventListener('click', () => {
-            prizesScreen.classList.add('hidden');
-            prizesScreen.classList.remove('active');
         });
     }
 }
@@ -173,74 +145,60 @@ function updateMobileButtons() {
     }
 }
 
-// Load leaderboard data
-function loadLeaderboard() {
-    const listEl = document.getElementById('leaderboard-list');
-    listEl.innerHTML = '<li>Loading...</li>';
-
-    JtiExtension.getRanking({
-        extensionName: "roundabout-rush",
-        limit: 10,
-        timeRange: "all-time"
-    })
-    .then(res => {
-        listEl.innerHTML = '';
-
-        const scoreboard = res.ranking?.scoreboard || [];
-        const selfInfo = res.ranking?.self;
-
-        // Display the top 10 entries
-        for (let i = 0; i < 10; i++) {
-            const entry = scoreboard[i];
-
-            const rankVal = entry ? `${entry.position}.` : '-';
-            const name = entry ? entry.name : '-';
-            const score = entry ? entry.score : '-';
-
-            const li = document.createElement('li');
-
-            // Check if this is the current user's entry
-            const isCurrentUser = selfInfo && entry && entry.position === selfInfo.position;
-
-            li.innerHTML = `
-                <div class="entry-bar ${isCurrentUser ? 'current-user' : ''}">
-                    <div class="bar-content">
-                        <span class="rank">${rankVal}</span>
-                        <span class="name" title="${name}">${name}</span>
-                        <span class="score">${score}</span>
-                    </div>
-                </div>
-            `;
-            listEl.appendChild(li);
+// Calculate JTI coins with daily limit
+async function calculateAndSubmitJTICoins(gameScore) {
+    try {
+        if (!window.jticonnexus || !jtiInitData) {
+            console.log('JTI SDK not available');
+            return { coinsEarned: 0, totalDaily: 0, hitLimit: false };
         }
 
-        // If user is not in top 10, add their entry at the bottom
-        if (selfInfo && selfInfo.position > 10) {
-            const separator = document.createElement('li');
-            separator.innerHTML = '<div class="separator">...</div>';
-            listEl.appendChild(separator);
-
-            const userLi = document.createElement('li');
-            userLi.innerHTML = `
-                <div class="entry-bar current-user">
-                    <div class="bar-content">
-                        <span class="rank">${selfInfo.position}.</span>
-                        <span class="name" title="${selfInfo.name}">${selfInfo.name}</span>
-                        <span class="score">${selfInfo.score}</span>
-                    </div>
-                </div>
-            `;
-            listEl.appendChild(userLi);
+        // Check if it's a new day in UK time
+        const ukToday = getUKDateString();
+        if (jtiState.lastPlayDate !== ukToday) {
+            // Reset for new day
+            jtiState = {
+                lastPlayDate: ukToday,
+                dailyCoinsEarned: 0
+            };
         }
-    })
-    .catch(err => {
-        console.error('Leaderboard error:', err);
-        listEl.innerHTML = '<li style="color: white; padding: 20px; text-align: center;">Unable to load leaderboard. Please try again later.</li>';
-    });
+
+        // Calculate coins from score (100 score = 1 coin)
+        const potentialCoins = Math.floor(gameScore / 100);
+
+        // Calculate how many coins can actually be earned (max 10 per day)
+        const remainingDaily = 10 - jtiState.dailyCoinsEarned;
+        const coinsToAward = Math.min(potentialCoins, remainingDaily);
+
+        // Update state
+        jtiState.dailyCoinsEarned += coinsToAward;
+
+        // Save state
+        await window.jticonnexus.setState(jtiState);
+
+        // Submit score to JTI (normalized between 0-1)
+        // We use the actual coins earned as the score factor
+        if (coinsToAward > 0) {
+            const normalizedScore = coinsToAward / 10; // 10 coins = 1.0 (max daily)
+            await window.jticonnexus.setScore(normalizedScore, { gameScore: gameScore, coins: coinsToAward }, { addToRanking: true });
+        }
+
+        console.log(`Score: ${gameScore}, Potential coins: ${potentialCoins}, Awarded: ${coinsToAward}, Daily total: ${jtiState.dailyCoinsEarned}/10`);
+
+        return {
+            coinsEarned: coinsToAward,
+            totalDaily: jtiState.dailyCoinsEarned,
+            hitLimit: jtiState.dailyCoinsEarned >= 10
+        };
+
+    } catch (error) {
+        console.error('Error calculating JTI coins:', error);
+        return { coinsEarned: 0, totalDaily: 0, hitLimit: false };
+    }
 }
 
 // Export functions for use in MainScene
-export { JtiExtension, jtiInitData };
+export { jtiInitData, jtiState, calculateAndSubmitJTICoins };
 
 // Start the game when DOM is ready
 if (document.readyState === 'loading') {
