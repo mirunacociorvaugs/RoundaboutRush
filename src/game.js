@@ -30,22 +30,35 @@ async function initializeGame() {
 
             if (initResponse.status === 'success') {
                 jtiInitData = initResponse;
+
+                // Load existing state or create new one
                 jtiState = initResponse.state || {};
 
                 // Check if it's a new day in UK time
                 const ukToday = getUKDateString();
-                if (jtiState.lastPlayDate !== ukToday) {
-                    // New day - reset daily coins
-                    jtiState = {
-                        lastPlayDate: ukToday,
-                        dailyCoinsEarned: 0
-                    };
+                const isNewDay = !jtiState.lastPlayDate || jtiState.lastPlayDate !== ukToday;
 
+                if (isNewDay) {
+                    // New day - reset ONLY daily coins, preserve everything else
+                    console.log('New day detected at initialization');
+                    jtiState.lastPlayDate = ukToday;
+                    jtiState.dailyCoinsEarned = 0;
+                }
+
+                // Ensure all required properties exist (without overwriting)
+                if (jtiState.totalCoins === undefined) jtiState.totalCoins = 0;
+                if (jtiState.gamesPlayed === undefined) jtiState.gamesPlayed = 0;
+                if (jtiState.dailyCoinsEarned === undefined) jtiState.dailyCoinsEarned = 0;
+                if (!jtiState.lastPlayDate) jtiState.lastPlayDate = ukToday;
+
+                // Save state if it's a new day or if state was empty
+                if (isNewDay || !initResponse.state) {
                     await window.jticonnexus.setState(jtiState);
-                    console.log('New day - coins reset');
+                    console.log('State updated on init');
                 }
 
                 console.log('Current state:', jtiState);
+                console.log(`Daily coins: ${jtiState.dailyCoinsEarned}/10, Total coins: ${jtiState.totalCoins}`);
             }
         }
     } catch (error) {
@@ -153,37 +166,92 @@ async function calculateAndSubmitJTICoins(gameScore) {
             return { coinsEarned: 0, totalDaily: 0, hitLimit: false };
         }
 
+        // IMPORTANT: Since setState is only read at init, we must track daily coins
+        // in memory across multiple games in the same session
+
         // Check if it's a new day in UK time
         const ukToday = getUKDateString();
-        if (jtiState.lastPlayDate !== ukToday) {
-            // Reset for new day
-            jtiState = {
-                lastPlayDate: ukToday,
-                dailyCoinsEarned: 0
+        if (!jtiState.lastPlayDate || jtiState.lastPlayDate !== ukToday) {
+            // Only reset if it's actually a new day
+            console.log('New day detected, resetting daily coins counter');
+            jtiState.lastPlayDate = ukToday;
+            jtiState.dailyCoinsEarned = 0;
+        }
+
+        // Calculate coins from score (10 score = 1 coin) - TEMPORARY RATE
+        const potentialCoins = Math.floor(gameScore / 10);
+
+        // Get current daily coins earned (from our in-memory state, not server)
+        const currentDailyCoins = jtiState.dailyCoinsEarned || 0;
+
+        // Calculate how many coins can actually be earned (max 10 per day)
+        const remainingDaily = Math.max(0, 10 - currentDailyCoins);
+        const coinsToAward = Math.min(potentialCoins, remainingDaily);
+
+        // CRITICAL: Double-check we never exceed daily limit
+        if (currentDailyCoins >= 10) {
+            console.log('Daily limit already reached. No coins will be awarded.');
+            return {
+                coinsEarned: 0,
+                totalDaily: currentDailyCoins,
+                hitLimit: true
             };
         }
 
-        // Calculate coins from score (100 score = 1 coin)
-        const potentialCoins = Math.floor(gameScore / 100);
-
-        // Calculate how many coins can actually be earned (max 10 per day)
-        const remainingDaily = 10 - jtiState.dailyCoinsEarned;
-        const coinsToAward = Math.min(potentialCoins, remainingDaily);
-
-        // Update state
-        jtiState.dailyCoinsEarned += coinsToAward;
-
-        // Save state
-        await window.jticonnexus.setState(jtiState);
-
-        // Submit score to JTI (normalized between 0-1)
-        // We use the actual coins earned as the score factor
         if (coinsToAward > 0) {
+            // Get current total coins from ranking
+            let totalCoins = 0;
+            try {
+                const currentRanking = await window.jticonnexus.getRanking({ top: 1, page: 0 });
+                totalCoins = currentRanking?.self?.meta?.totalCoins || 0;
+            } catch (err) {
+                console.log('Could not get ranking, using state total');
+                totalCoins = jtiState.totalCoins || 0;
+            }
+
+            // Update state with new coins (with safeguard for daily limit)
+            const newDailyTotal = currentDailyCoins + coinsToAward;
+            jtiState.dailyCoinsEarned = Math.min(newDailyTotal, 10); // Never exceed 10
+            jtiState.totalCoins = totalCoins + coinsToAward;
+            jtiState.lastGameScore = gameScore;
+            jtiState.gamesPlayed = (jtiState.gamesPlayed || 0) + 1;
+
+            // Save state first
+            await window.jticonnexus.setState(jtiState);
+
+            // Submit score to JTI (normalized between 0-1)
+            // We normalize based on the maximum possible daily coins (10)
             const normalizedScore = coinsToAward / 10; // 10 coins = 1.0 (max daily)
-            await window.jticonnexus.setScore(normalizedScore, { gameScore: gameScore, coins: coinsToAward }, { addToRanking: true });
+
+            const scoreResponse = await window.jticonnexus.setScore(
+                normalizedScore,
+                {
+                    gameScore: gameScore,
+                    coinsEarned: coinsToAward,
+                    totalCoins: jtiState.totalCoins,
+                    dailyCoins: jtiState.dailyCoinsEarned
+                },
+                { addToRanking: true }
+            );
+
+            console.log('Score submitted:', scoreResponse);
+        } else {
+            // Even if no coins awarded, update the state to track the game
+            jtiState.lastGameScore = gameScore;
+            jtiState.gamesPlayed = (jtiState.gamesPlayed || 0) + 1;
+            await window.jticonnexus.setState(jtiState);
         }
 
-        console.log(`Score: ${gameScore}, Potential coins: ${potentialCoins}, Awarded: ${coinsToAward}, Daily total: ${jtiState.dailyCoinsEarned}/10`);
+        // Create detailed log for debugging
+        console.log('=== JTI Coins Calculation ===');
+        console.log(`Game Score: ${gameScore}`);
+        console.log(`Potential Coins (score/10): ${potentialCoins}`);
+        console.log(`Daily Coins Before: ${currentDailyCoins}/10`);
+        console.log(`Coins Awarded: ${coinsToAward}`);
+        console.log(`Daily Coins After: ${jtiState.dailyCoinsEarned}/10`);
+        console.log(`Total Coins All Time: ${jtiState.totalCoins}`);
+        console.log(`Daily Limit Hit: ${jtiState.dailyCoinsEarned >= 10}`);
+        console.log('============================');
 
         return {
             coinsEarned: coinsToAward,
