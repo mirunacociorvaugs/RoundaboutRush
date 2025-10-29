@@ -51,7 +51,7 @@ export default class MainScene extends Phaser.Scene {
 
         // Movement variables
         this.currentAngle = 0;
-        this.baseRotationSpeed = 0.88; // degrees per frame (12% slower for easier start)
+        this.baseRotationSpeed = 1.5; // degrees per frame (much faster starting speed)
         this.rotationSpeed = this.baseRotationSpeed;
         this.currentLane = 2; // 0=inner, 1=middle, 2=outer (start at outer)
         this.isTransitioning = false;
@@ -802,7 +802,7 @@ export default class MainScene extends Phaser.Scene {
 
         // Restore effects
         if (type === 'speed') {
-            this.rotationSpeed = this.baseRotationSpeed * (1 + (this.level - 1) * 0.007);
+            this.rotationSpeed = this.baseRotationSpeed * (1 + (this.level - 1) * 0.01);
         } else if (type === 'invisibility') {
             this.isInvincible = false;
         }
@@ -966,8 +966,8 @@ export default class MainScene extends Phaser.Scene {
     }
 
     updateSpeed() {
-        // Speed increases 0.7% per level
-        this.rotationSpeed = this.baseRotationSpeed * (1 + (this.level - 1) * 0.007);
+        // Speed increases 1% per level
+        this.rotationSpeed = this.baseRotationSpeed * (1 + (this.level - 1) * 0.01);
     }
 
     checkOrbitComplete() {
@@ -1086,7 +1086,7 @@ export default class MainScene extends Phaser.Scene {
             } else if (result.hitLimit) {
                 console.log(`Daily limit reached! You've earned the maximum 10 JTI coins today. Come back tomorrow!`);
             } else {
-                console.log(`Score: ${this.score}. No JTI coins earned (need 100+ score per coin).`);
+                console.log(`Score: ${this.score}. No JTI coins earned (need 100 score per coin).`);
             }
 
         } catch (error) {

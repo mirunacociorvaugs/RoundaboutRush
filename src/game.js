@@ -178,8 +178,8 @@ async function calculateAndSubmitJTICoins(gameScore) {
             jtiState.dailyCoinsEarned = 0;
         }
 
-        // Calculate coins from score (10 score = 1 coin) - TEMPORARY RATE
-        const potentialCoins = Math.floor(gameScore / 10);
+        // Calculate coins from score (100 score = 1 coin)
+        const potentialCoins = Math.floor(gameScore / 100);
 
         // Get current daily coins earned (from our in-memory state, not server)
         const currentDailyCoins = jtiState.dailyCoinsEarned || 0;
@@ -242,16 +242,13 @@ async function calculateAndSubmitJTICoins(gameScore) {
             await window.jticonnexus.setState(jtiState);
         }
 
-        // Create detailed log for debugging
-        console.log('=== JTI Coins Calculation ===');
         console.log(`Game Score: ${gameScore}`);
-        console.log(`Potential Coins (score/10): ${potentialCoins}`);
+        console.log(`Potential Coins (score/100): ${potentialCoins}`);
         console.log(`Daily Coins Before: ${currentDailyCoins}/10`);
         console.log(`Coins Awarded: ${coinsToAward}`);
         console.log(`Daily Coins After: ${jtiState.dailyCoinsEarned}/10`);
         console.log(`Total Coins All Time: ${jtiState.totalCoins}`);
         console.log(`Daily Limit Hit: ${jtiState.dailyCoinsEarned >= 10}`);
-        console.log('============================');
 
         return {
             coinsEarned: coinsToAward,

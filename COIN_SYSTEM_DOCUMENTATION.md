@@ -4,17 +4,17 @@
 The game awards JTI coins based on game score with a daily limit of 10 coins per day.
 
 ## Coin Calculation Rules
-- **Conversion Rate**: 10 game score points = 1 JTI coin (TEMPORARY RATE)
+- **Conversion Rate**: 100 game score points = 1 JTI coin
 - **Daily Limit**: Maximum 10 JTI coins per day (UK timezone)
 - **Daily Reset**: Resets at midnight UK time (Europe/London timezone)
 
-## Example Scenarios (with temporary 10:1 rate)
+## Example Scenarios (with 100:1 rate)
 
 ### Scenario 1: Player plays 3 games in one day
-1. **Game 1**: Score 22 → 2 coins earned (2/10 daily)
-2. **Game 2**: Score 60 → 6 coins earned (8/10 daily)
+1. **Game 1**: Score 220 → 2 coins earned (2/10 daily)
+2. **Game 2**: Score 600 → 6 coins earned (8/10 daily)
 3. **Game 3**: Score 350 → 2 coins earned (10/10 daily - limit reached)
-   - Potential coins would be 35, but only 2 awarded due to daily limit
+   - Potential coins would be 3, but only 2 awarded due to daily limit
 
 ### Scenario 2: Daily limit already reached
 - If a player has already earned 10 coins today, any additional games will award 0 coins
@@ -39,7 +39,7 @@ The game tracks the following in `jtiState`:
 1. **Initialization**: Loads existing state or creates new state
 2. **Daily Reset Check**: Compares current UK date with lastPlayDate
 3. **Coin Calculation**:
-   - Calculate potential coins: `Math.floor(gameScore / 10)` (TEMPORARY RATE)
+   - Calculate potential coins: `Math.floor(gameScore / 100)`
    - Check remaining daily allowance: `10 - dailyCoinsEarned`
    - Award minimum of potential and remaining
 4. **State Update**: Save new state with `setState()`
@@ -56,8 +56,8 @@ The game tracks the following in `jtiState`:
 The system logs detailed information for each coin calculation:
 ```
 === JTI Coins Calculation ===
-Game Score: 22
-Potential Coins (score/10): 2
+Game Score: 220
+Potential Coins (score/100): 2
 Daily Coins Before: 0/10
 Coins Awarded: 2
 Daily Coins After: 2/10
