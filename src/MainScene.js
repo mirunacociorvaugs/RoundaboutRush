@@ -51,7 +51,9 @@ export default class MainScene extends Phaser.Scene {
 
         // Movement variables
         this.currentAngle = 0;
-        this.baseRotationSpeed = 1.5; // degrees per frame (much faster starting speed)
+        // Time-based rotation: 360 degrees in 7 seconds = 51.43 degrees per second
+        // This ensures consistent speed across ALL devices regardless of frame rate
+        this.baseRotationSpeed = 360 / 4.2; // degrees per second (not per frame!)
         this.rotationSpeed = this.baseRotationSpeed;
         this.currentLane = 2; // 0=inner, 1=middle, 2=outer (start at outer)
         this.isTransitioning = false;
@@ -1116,11 +1118,12 @@ export default class MainScene extends Phaser.Scene {
         });
     }
 
-    update() {
+    update(time, delta) {
         if (this.gameOver || !this.gameStarted) return;
 
-        // Auto-rotate scooter
-        this.currentAngle += this.rotationSpeed;
+        // Auto-rotate scooter using delta time for frame-rate independence
+        // delta is in milliseconds, convert to seconds
+        this.currentAngle += this.rotationSpeed * (delta / 1000);
 
         // Update scooter position
         this.updateScooterPosition();
