@@ -90,30 +90,25 @@ canvas {
   user-select: none;
   z-index: 1000;
   backdrop-filter: blur(10px);
+  -webkit-tap-highlight-color: transparent;
 }
 
 #left-button {
-  left: 20%;
-  transform: translateX(-50%);
+  left: 60px;
 }
 
 #right-button {
-  right: 20%;
-  transform: translateX(50%);
+  right: 60px;
 }
 
 .mobile-button:active {
   background: rgba(255, 255, 255, 0.4);
-  transform: translateX(-50%) scale(0.95);
+  transform: scale(0.95);
 }
 
-#right-button:active {
-  transform: translateX(50%) scale(0.95);
-}
-
-/* Show mobile buttons only on mobile devices (controlled by JavaScript) */
+/* Ensure buttons are visible on all mobile devices */
 #game-container.playing.mobile-device .mobile-button {
-  display: block;
+  display: block !important;
 }
 
 /* Start screen */
@@ -636,6 +631,40 @@ canvas {
   list-style: none;
 }
 
+/* Tablet responsive (landscape and portrait) */
+@media (min-width: 701px) and (max-width: 1024px) {
+  /* Ensure mobile buttons are properly sized for tablets */
+  .mobile-button {
+    width: 100px;
+    height: 100px;
+    font-size: 17px;
+    bottom: 50px;
+  }
+
+  #left-button {
+    left: 80px;
+  }
+
+  #right-button {
+    right: 80px;
+  }
+}
+
+/* Tablet portrait - adjust for narrower screens */
+@media (min-width: 701px) and (max-width: 1024px) and (orientation: portrait) {
+  .mobile-button {
+    bottom: 40px;
+  }
+
+  #left-button {
+    left: 60px;
+  }
+
+  #right-button {
+    right: 60px;
+  }
+}
+
 /* Mobile responsive */
 @media (max-width: 700px) {
   .game-title {
@@ -720,6 +749,22 @@ canvas {
     min-width: 50px;
     max-width: 65px;
   }
+
+  /* Mobile button adjustments for phones */
+  .mobile-button {
+    width: 85px;
+    height: 85px;
+    font-size: 15px;
+    bottom: 35px;
+  }
+
+  #left-button {
+    left: 50px;
+  }
+
+  #right-button {
+    right: 50px;
+  }
 }
 
 @media (max-width: 400px) {
@@ -796,5 +841,21 @@ canvas {
     font-size: 0.9em;
     min-width: 45px;
     max-width: 60px;
+  }
+
+  /* Mobile button adjustments for very small phones */
+  .mobile-button {
+    width: 75px;
+    height: 75px;
+    font-size: 14px;
+    bottom: 30px;
+  }
+
+  #left-button {
+    left: 30px;
+  }
+
+  #right-button {
+    right: 30px;
   }
 }
